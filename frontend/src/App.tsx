@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import AppShell from '@/components/layout/AppShell'
+import LandingPage from '@/pages/LandingPage'
 import ChatPage from '@/pages/ChatPage'
 import TasksPage from '@/pages/TasksPage'
 import SettingsPage from '@/pages/SettingsPage'
@@ -16,8 +17,9 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
+          <Route index element={<LandingPage />} />
           <Route element={<AppShell />}>
-            <Route index element={<ChatPage />} />
+            <Route path="chat" element={<ChatPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
