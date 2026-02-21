@@ -1,0 +1,28 @@
+import type { Task } from './task'
+
+export interface QuickAction {
+  label: string
+  action: string
+  payload: Record<string, unknown>
+}
+
+export interface ChatResponse {
+  reply: string
+  intent_type: string | null
+  tasks: Task[] | null
+  task: Task | null
+  quick_actions: QuickAction[] | null
+  needs_confirmation: boolean
+  confirmation_data: Record<string, unknown> | null
+}
+
+export interface Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: string
+  task?: Task | null
+  tasks?: Task[] | null
+  quick_actions?: QuickAction[]
+  loading?: boolean
+}
