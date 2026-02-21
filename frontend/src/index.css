@@ -1,21 +1,30 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg-primary: #0f0f0f;
-  --color-bg-secondary: #1a1a1a;
-  --color-bg-tertiary: #252525;
-  --color-bg-hover: #2a2a2a;
-  --color-border: #333333;
-  --color-border-light: #404040;
-  --color-text-primary: #e5e5e5;
-  --color-text-secondary: #a3a3a3;
-  --color-text-muted: #737373;
-  --color-accent: #6366f1;
-  --color-accent-hover: #818cf8;
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-critical: #dc2626;
+  /* Batcave — deep cave blacks with blue undertones */
+  --color-bg-primary: #09090f;
+  --color-bg-secondary: #111118;
+  --color-bg-tertiary: #1a1a24;
+  --color-bg-hover: #22222e;
+
+  /* Gotham steel borders */
+  --color-border: #2a2a3a;
+  --color-border-light: #3a3a4e;
+
+  /* Text — cool grey like moonlight on Gotham rooftops */
+  --color-text-primary: #e2e2ef;
+  --color-text-secondary: #9898b0;
+  --color-text-muted: #606078;
+
+  /* Wayne gold — the Bat-Signal amber */
+  --color-accent: #d4a020;
+  --color-accent-hover: #e8b83a;
+
+  /* Status colors */
+  --color-success: #2ecc71;
+  --color-warning: #e8b83a;
+  --color-danger: #e74c3c;
+  --color-critical: #c0392b;
 }
 
 body {

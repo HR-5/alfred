@@ -14,7 +14,7 @@ export default function Sidebar() {
         <h1 className="text-lg font-semibold text-text-primary tracking-tight">
           Alfred
         </h1>
-        <p className="text-xs text-text-muted mt-0.5">Your personal AI butler</p>
+        <p className="text-xs text-text-muted mt-0.5">The Batcave for your day</p>
       </div>
 
       <nav className="flex-1 p-2 space-y-0.5">

@@ -42,7 +42,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Alfred",
         version="0.1.0",
-        description="Your personal AI butler for tasks, calendar, and accountability",
+        description="The silent guardian of your calendar. The watchful protector of your to-do list.",
         lifespan=lifespan,
     )
 

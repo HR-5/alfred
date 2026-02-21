@@ -15,8 +15,8 @@ export default function MessageBubble({ message, onQuickAction }: Props) {
   return (
     <div className={cn('flex gap-3 px-4 py-2', isUser ? 'justify-end' : 'justify-start')}>
       {!isUser && (
-        <div className="w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center text-xs shrink-0 mt-1">
-          A
+        <div className="w-7 h-7 rounded-full bg-accent/20 text-accent flex items-center justify-center text-sm shrink-0 mt-1">
+          🦇
         </div>
       )}
 
@@ -24,14 +24,14 @@ export default function MessageBubble({ message, onQuickAction }: Props) {
         className={cn(
           'max-w-[75%] rounded-2xl px-4 py-2.5',
           isUser
-            ? 'bg-accent text-white rounded-br-md'
+            ? 'bg-accent text-bg-primary rounded-br-md font-medium'
             : 'bg-bg-secondary border border-border rounded-bl-md'
         )}
       >
         {message.loading ? (
           <div className="flex items-center gap-2 py-1">
             <Spinner />
-            <span className="text-sm text-text-muted">Thinking...</span>
+            <span className="text-sm text-text-muted">One moment, sir...</span>
           </div>
         ) : (
           <>
@@ -72,14 +72,14 @@ export default function MessageBubble({ message, onQuickAction }: Props) {
           </>
         )}
 
-        <p className={cn('text-[10px] mt-1', isUser ? 'text-white/50' : 'text-text-muted')}>
+        <p className={cn('text-[10px] mt-1', isUser ? 'text-bg-primary/60' : 'text-text-muted')}>
           {formatTimestamp(message.timestamp)}
         </p>
       </div>
 
       {isUser && (
-        <div className="w-7 h-7 rounded-full bg-bg-tertiary flex items-center justify-center text-xs shrink-0 mt-1">
-          You
+        <div className="w-7 h-7 rounded-full bg-accent/15 text-accent flex items-center justify-center text-xs font-bold shrink-0 mt-1">
+          W
         </div>
       )}
     </div>

@@ -105,8 +105,8 @@ export default function ChatPanel() {
   return (
     <div className="flex flex-col h-full">
       <div className="border-b border-border px-4 py-3">
-        <h2 className="text-sm font-medium text-text-primary">Alfred</h2>
-        <p className="text-xs text-text-muted">At your service. Tell me what needs doing.</p>
+        <h2 className="text-sm font-medium text-text-primary">Alfred Pennyworth</h2>
+        <p className="text-xs text-text-muted">At your service, Master Wayne.</p>
       </div>
       <MessageList onQuickAction={handleQuickAction} />
       <ChatInput onSend={handleSend} />

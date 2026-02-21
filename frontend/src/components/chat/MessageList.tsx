@@ -19,15 +19,16 @@ export default function MessageList({ onQuickAction }: Props) {
       <div className="flex-1 flex flex-col items-center justify-center text-text-muted px-8">
         <div className="text-5xl mb-4">🦇</div>
         <h2 className="text-lg font-medium text-text-secondary mb-2">
-          Good day. How may I assist you?
+          Good evening, Master Wayne.
         </h2>
         <p className="text-sm text-center max-w-md leading-relaxed">
-          Tell me what needs doing, sir. I'll organize it, schedule it, and ensure it gets done.
+          Shall we review tonight's agenda, or is there something more pressing?
+          I'll organize, schedule, and ensure nothing slips through.
         </p>
         <div className="mt-6 space-y-2 text-xs text-text-muted">
-          <p>Try: <span className="text-text-secondary">"Call Shiva tomorrow at 6pm about pricing"</span></p>
-          <p>Try: <span className="text-text-secondary">"Finish YC deck by Friday night, high priority"</span></p>
-          <p>Try: <span className="text-text-secondary">"What do I have today?"</span></p>
+          <p>Try: <span className="text-text-secondary">"Call Lucius tomorrow at 6pm about the new prototype"</span></p>
+          <p>Try: <span className="text-text-secondary">"Finish the board presentation by Friday night, high priority"</span></p>
+          <p>Try: <span className="text-text-secondary">"What's on the docket today?"</span></p>
         </div>
       </div>
     )

@@ -37,7 +37,7 @@ export default function ChatInput({ onSend }: Props) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Tell me what you need to do..."
+          placeholder="What shall we attend to, sir?"
           rows={1}
           disabled={loading}
           className={cn(
