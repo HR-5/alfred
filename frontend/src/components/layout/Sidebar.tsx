@@ -4,6 +4,7 @@ import { cn } from '@/utils/cn'
 const navItems = [
   { path: '/chat', label: 'Chat', icon: '💬' },
   { path: '/tasks', label: 'Tasks', icon: '📋' },
+  { path: '/calendar', label: 'Calendar', icon: '📅' },
   { path: '/settings', label: 'Settings', icon: '⚙️' },
 ]
 

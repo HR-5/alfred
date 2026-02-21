@@ -90,6 +90,11 @@ class Task(Base, TimestampMixin):
     notes: Mapped[list["TaskNote"]] = relationship(
         back_populates="task", cascade="all, delete-orphan"
     )
+    calendar_blocks: Mapped[list["CalendarBlock"]] = relationship(
+        back_populates="task",
+        cascade="all, delete-orphan",
+        order_by="CalendarBlock.scheduled_date, CalendarBlock.start_time",
+    )
 
 
 class TaskNote(Base, TimestampMixin):
