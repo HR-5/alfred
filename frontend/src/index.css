@@ -1,30 +1,30 @@
 @import "tailwindcss";
 
 @theme {
-  /* Batcave — deep cave blacks with blue undertones */
-  --color-bg-primary: #09090f;
-  --color-bg-secondary: #111118;
-  --color-bg-tertiary: #1a1a24;
-  --color-bg-hover: #22222e;
+  /* Vampire Black (#080808) — the cowl */
+  --color-bg-primary: #080808;
+  --color-bg-secondary: #0f0f0f;
+  --color-bg-tertiary: #181818;
+  --color-bg-hover: #1e1e1e;
 
-  /* Gotham steel borders */
-  --color-border: #2a2a3a;
-  --color-border-light: #3a3a4e;
+  /* Davy's Grey (#515155) / Gray (#7F8086) — Gotham concrete */
+  --color-border: #3a3a3e;
+  --color-border-light: #515155;
 
-  /* Text — cool grey like moonlight on Gotham rooftops */
-  --color-text-primary: #e2e2ef;
-  --color-text-secondary: #9898b0;
-  --color-text-muted: #606078;
+  /* Gray (#7F8086) for text hierarchy */
+  --color-text-primary: #e8e8ea;
+  --color-text-secondary: #7F8086;
+  --color-text-muted: #515155;
 
-  /* Wayne gold — the Bat-Signal amber */
-  --color-accent: #d4a020;
-  --color-accent-hover: #e8b83a;
+  /* Light Taupe (#AE8875) — the accent, like aged leather in the Batcave */
+  --color-accent: #AE8875;
+  --color-accent-hover: #c49e8b;
 
   /* Status colors */
-  --color-success: #2ecc71;
-  --color-warning: #e8b83a;
-  --color-danger: #e74c3c;
-  --color-critical: #c0392b;
+  --color-success: #5a9a6e;
+  --color-warning: #AE8875;
+  --color-danger: #a04040;
+  --color-critical: #8b2e2e;
 }
 
 body {
