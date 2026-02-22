@@ -9,11 +9,22 @@ interface Props {
 export default function ChatInput({ onSend }: Props) {
   const [text, setText] = useState('')
   const loading = useChatStore((s) => s.loading)
+  const draftMessage = useChatStore((s) => s.draftMessage)
+  const setDraftMessage = useChatStore((s) => s.setDraftMessage)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     inputRef.current?.focus()
   }, [loading])
+
+  // Pick up draft messages from calendar event clicks
+  useEffect(() => {
+    if (draftMessage) {
+      setText(draftMessage)
+      setDraftMessage('')
+      inputRef.current?.focus()
+    }
+  }, [draftMessage, setDraftMessage])
 
   const handleSubmit = () => {
     const trimmed = text.trim()

@@ -24,3 +24,4 @@ class ChatResponse(BaseModel):
     quick_actions: Optional[list[QuickAction]] = None
     needs_confirmation: bool = False
     confirmation_data: Optional[dict[str, Any]] = None
+    actions_taken: Optional[list[str]] = None

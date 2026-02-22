@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { useChatStore } from '@/store/chatStore'
-import { sendMessage } from '@/api/chat'
+import { sendMessageStream } from '@/api/chat'
 import { completeTask, deleteTask } from '@/api/tasks'
 import MessageList from './MessageList'
 import ChatInput from './ChatInput'
@@ -11,7 +11,7 @@ function makeId(): string {
 }
 
 export default function ChatPanel() {
-  const { addMessage, setLoading, sessionId } = useChatStore()
+  const { addMessage, addThinkingStep, updateLastThinkingStep, updateLastAssistant, setLoading, sessionId } = useChatStore()
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -29,40 +29,51 @@ export default function ChatPanel() {
         content: '',
         timestamp: new Date().toISOString(),
         loading: true,
+        thinking_steps: [],
       }
       addMessage(loadingMsg)
       setLoading(true)
 
       try {
-        const resp = await sendMessage(text, sessionId)
-        const assistantMsg: Message = {
-          id: makeId(),
-          role: 'assistant',
-          content: resp.reply,
-          timestamp: new Date().toISOString(),
-          task: resp.task,
-          tasks: resp.tasks,
-          quick_actions: resp.quick_actions ?? undefined,
-        }
-        // Replace loading message
-        useChatStore.setState((state) => ({
-          messages: [...state.messages.slice(0, -1), assistantMsg],
-        }))
+        await sendMessageStream(text, sessionId, (event) => {
+          switch (event.event) {
+            case 'step':
+              addThinkingStep({
+                tool: event.data.tool as string,
+                summary: event.data.summary as string,
+                status: 'running',
+              })
+              break
+            case 'step_done':
+              updateLastThinkingStep({
+                status: 'done',
+                result: event.data.summary as string,
+              })
+              break
+            case 'done':
+              updateLastAssistant({
+                content: event.data.reply as string,
+                loading: false,
+              })
+              break
+            case 'error':
+              updateLastAssistant({
+                content: `Something went wrong: ${event.data.message}`,
+                loading: false,
+              })
+              break
+          }
+        })
       } catch {
-        const errorMsg: Message = {
-          id: makeId(),
-          role: 'assistant',
-          content: 'Something went wrong. Make sure the backend is running and the LLM is available.',
-          timestamp: new Date().toISOString(),
-        }
-        useChatStore.setState((state) => ({
-          messages: [...state.messages.slice(0, -1), errorMsg],
-        }))
+        updateLastAssistant({
+          content: 'Something went wrong. Make sure the backend is running.',
+          loading: false,
+        })
       } finally {
         setLoading(false)
       }
     },
-    [addMessage, setLoading, sessionId]
+    [addMessage, addThinkingStep, updateLastThinkingStep, updateLastAssistant, setLoading, sessionId]
   )
 
   const handleQuickAction = useCallback(
@@ -73,22 +84,20 @@ export default function ChatPanel() {
       try {
         if (action === 'complete_task') {
           await completeTask(taskId)
-          const msg: Message = {
+          addMessage({
             id: makeId(),
             role: 'assistant',
             content: 'Task marked as done!',
             timestamp: new Date().toISOString(),
-          }
-          addMessage(msg)
+          })
         } else if (action === 'delete_task') {
           await deleteTask(taskId)
-          const msg: Message = {
+          addMessage({
             id: makeId(),
             role: 'assistant',
             content: 'Task deleted.',
             timestamp: new Date().toISOString(),
-          }
-          addMessage(msg)
+          })
         }
       } catch {
         addMessage({

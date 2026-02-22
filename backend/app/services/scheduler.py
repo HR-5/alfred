@@ -8,6 +8,7 @@ based on priority, deadline urgency, energy levels, and working hours.
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -75,6 +76,10 @@ async def schedule_week(
     # Step 4: Load schedulable tasks
     tasks = await _get_schedulable_tasks(session)
 
+    # Timezone-aware "today"
+    tz = ZoneInfo(settings.timezone)
+    today = datetime.now(tz).date()
+
     # Step 5: Calculate remaining minutes needed per task
     task_needs: list[tuple[Task, int]] = []
     for task in tasks:
@@ -90,7 +95,7 @@ async def schedule_week(
             task_needs.append((task, remaining))
 
     # Step 6: Sort by priority, deadline urgency, energy
-    task_needs.sort(key=lambda pair: _scheduling_sort_key(pair[0]))
+    task_needs.sort(key=lambda pair: _scheduling_sort_key(pair[0], today))
 
     # Step 7: Greedy slot assignment
     new_blocks: list[CalendarBlock] = []
@@ -111,6 +116,7 @@ async def schedule_week(
             slot = _find_best_slot(
                 task=task,
                 duration=block_size,
+                today=today,
                 week_start=week_start,
                 week_end=week_end,
                 work_start=work_start,
@@ -153,12 +159,12 @@ async def schedule_week(
 
 # --- Sorting ---
 
-def _scheduling_sort_key(task: Task) -> tuple:
+def _scheduling_sort_key(task: Task, today: date) -> tuple:
     """Lower tuple = scheduled first."""
     priority_rank = PRIORITY_ORDER.get(task.priority, 4)
 
     if task.due_date:
-        days_until_due = (task.due_date - date.today()).days
+        days_until_due = (task.due_date - today).days
     else:
         days_until_due = 999
 
@@ -176,6 +182,7 @@ def _scheduling_sort_key(task: Task) -> tuple:
 def _find_best_slot(
     task: Task,
     duration: int,
+    today: date,
     week_start: date,
     week_end: date,
     work_start: time,
@@ -183,7 +190,6 @@ def _find_best_slot(
     occupied: dict[date, list[tuple[time, time]]],
 ) -> Optional[TimeSlot]:
     """Find the best available slot for a task, energy-aware."""
-    today = date.today()
     scan_start = max(week_start, today)
 
     morning_end = _add_hours(work_start, 3)

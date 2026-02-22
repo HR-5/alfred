@@ -2,7 +2,7 @@ import { cn } from '@/utils/cn'
 import { formatTimestamp } from '@/utils/date'
 import type { Message } from '@/types/chat'
 import Badge from '@/components/ui/Badge'
-import Spinner from '@/components/ui/Spinner'
+import ThinkingSteps from './ThinkingSteps'
 
 interface Props {
   message: Message
@@ -11,6 +11,7 @@ interface Props {
 
 export default function MessageBubble({ message, onQuickAction }: Props) {
   const isUser = message.role === 'user'
+  const hasSteps = message.thinking_steps && message.thinking_steps.length > 0
 
   return (
     <div className={cn('flex gap-3 px-4 py-2', isUser ? 'justify-end' : 'justify-start')}>
@@ -28,11 +29,21 @@ export default function MessageBubble({ message, onQuickAction }: Props) {
             : 'bg-bg-secondary border border-border rounded-bl-md'
         )}
       >
-        {message.loading ? (
+        {/* Thinking steps — shown during and after loading */}
+        {hasSteps && <ThinkingSteps steps={message.thinking_steps!} />}
+
+        {message.loading && !hasSteps ? (
+          /* Pure loading state — no steps yet */
           <div className="flex items-center gap-2 py-1">
-            <Spinner />
+            <div className="w-4 h-4 shrink-0 relative">
+              <div className="absolute inset-0 rounded-full border-2 border-accent/30" />
+              <div className="absolute inset-0 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+            </div>
             <span className="text-sm text-text-muted">One moment, sir...</span>
           </div>
+        ) : message.loading && hasSteps ? (
+          /* Loading with steps — spinner handled by ThinkingSteps */
+          null
         ) : (
           <>
             <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
@@ -72,9 +83,11 @@ export default function MessageBubble({ message, onQuickAction }: Props) {
           </>
         )}
 
-        <p className={cn('text-[10px] mt-1', isUser ? 'text-bg-primary/60' : 'text-text-muted')}>
-          {formatTimestamp(message.timestamp)}
-        </p>
+        {!message.loading && (
+          <p className={cn('text-[10px] mt-1', isUser ? 'text-bg-primary/60' : 'text-text-muted')}>
+            {formatTimestamp(message.timestamp)}
+          </p>
+        )}
       </div>
 
       {isUser && (

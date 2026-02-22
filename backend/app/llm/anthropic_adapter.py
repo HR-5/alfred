@@ -1,18 +1,18 @@
 import json
 import logging
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
 from app.llm.base import LLMAdapter
-from app.llm.types import LLMConfig, LLMMessage
+from app.llm.types import LLMConfig, LLMMessage, LLMToolResponse, ToolCall
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 
 class AnthropicAdapter(LLMAdapter):
-    """Claude adapter using the Anthropic SDK's tool-use for structured output."""
+    """Claude adapter using the Anthropic SDK."""
 
     def __init__(self, config: LLMConfig) -> None:
         super().__init__(config)
@@ -31,7 +31,7 @@ class AnthropicAdapter(LLMAdapter):
         chat: list[dict] = []
         for m in messages:
             if m.role == "system":
-                system = m.content
+                system = m.content if isinstance(m.content, str) else json.dumps(m.content)
             else:
                 chat.append({"role": m.role, "content": m.content})
         return system, chat
@@ -104,6 +104,60 @@ class AnthropicAdapter(LLMAdapter):
                     raise ValueError(f"Structured output failed after {retries + 1} attempts: {exc}") from exc
 
         raise RuntimeError("Unreachable")
+
+    async def generate_with_tools(
+        self,
+        messages: list[LLMMessage],
+        tools: list[dict[str, Any]],
+        *,
+        temperature: float = 0.5,
+        max_tokens: int = 4096,
+    ) -> LLMToolResponse:
+        system, chat = self._split_messages(messages)
+        resp = await self._client.messages.create(
+            model=self.config.model,
+            system=system,
+            messages=chat,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            tools=tools,
+        )
+
+        # Extract text and tool_use blocks
+        text_parts = []
+        tool_calls = []
+        raw_content = []
+
+        for block in resp.content:
+            if block.type == "text":
+                text_parts.append(block.text)
+                raw_content.append({"type": "text", "text": block.text})
+            elif block.type == "tool_use":
+                tool_calls.append(ToolCall(
+                    id=block.id,
+                    name=block.name,
+                    input=block.input,
+                ))
+                raw_content.append({
+                    "type": "tool_use",
+                    "id": block.id,
+                    "name": block.name,
+                    "input": block.input,
+                })
+
+        if tool_calls:
+            return LLMToolResponse(
+                type="tool_use",
+                content="\n".join(text_parts),
+                tool_calls=tool_calls,
+                raw_content=raw_content,
+            )
+
+        return LLMToolResponse(
+            type="text",
+            content="\n".join(text_parts),
+            raw_content=raw_content,
+        )
 
     async def health_check(self) -> bool:
         try:

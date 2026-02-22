@@ -14,6 +14,14 @@ export interface ChatResponse {
   quick_actions: QuickAction[] | null
   needs_confirmation: boolean
   confirmation_data: Record<string, unknown> | null
+  actions_taken: string[] | null
+}
+
+export interface ThinkingStep {
+  tool: string
+  summary: string
+  status: 'running' | 'done'
+  result?: string
 }
 
 export interface Message {
@@ -25,4 +33,5 @@ export interface Message {
   tasks?: Task[] | null
   quick_actions?: QuickAction[]
   loading?: boolean
+  thinking_steps?: ThinkingStep[]
 }

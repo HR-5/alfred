@@ -1,30 +1,298 @@
 """
-Central dispatcher: user message → parse intent → route to service → build response.
+Agentic chat orchestrator: user message → LLM with tools → execute tools → loop → response.
+
+Supports both synchronous (handle_message) and streaming (handle_message_stream) modes.
 """
+
 import json
 import logging
-from datetime import date
+from collections.abc import AsyncGenerator
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import Settings
 from app.llm.base import LLMAdapter
-from app.llm.prompts.intent import build_conversational_prompt
 from app.llm.types import LLMMessage
 from app.models.conversation import ConversationLog
-from app.schemas.chat import ChatResponse, QuickAction
-from app.schemas.intent import IntentType, ParsedIntent
-from app.services import intent_engine, task_service
+from app.schemas.chat import ChatResponse
+from app.services.tools import TOOL_DEFINITIONS, execute_tool
 
 logger = logging.getLogger(__name__)
 
+MAX_TOOL_TURNS = 8
+
+SYSTEM_PROMPT = """You are Alfred Pennyworth — the same Alfred who keeps the Batcave running, patches up Bruce Wayne after a long night, and always has the right words at the right time.
+
+You are embedded in a personal task and calendar management system. You have access to tools to manage the user's tasks and calendar. Use them to fulfill requests.
+
+Today is {today} ({day_of_week}). Current time: {current_time}. Timezone: {timezone}.
+
+## Personality
+- Speak like Alfred from the Batman universe: composed, dry British wit, occasionally sardonic.
+- Concise and practical. You don't waste words.
+- Address the user respectfully — "sir" or "Master Wayne" occasionally, but don't overdo it.
+- When things go wrong, stay calm. "Might I suggest a different approach, sir?"
+
+## Tool Usage Guidelines
+- When the user asks to see, list, or query tasks, use the `list_tasks` or `find_tasks` tool.
+- When the user asks to delete, complete, or modify tasks, FIRST use `find_tasks` or `list_tasks` to get the task IDs, then use the appropriate tool with those IDs.
+- For bulk operations (e.g. "delete all tasks for today"), query first, then call delete/complete for each result.
+- For calendar operations (e.g. "clear my calendar"), use `get_calendar_blocks` then `delete_calendar_block` for each.
+- For "move my 3pm meeting to 5pm", use `get_calendar_blocks` to find the block, then `update_calendar_block`.
+- Always use tool results to provide accurate information — never fabricate task names or IDs.
+- When creating tasks, infer reasonable defaults:
+  - "quick call" → 15 min, "meeting" → 30 min, "deep work" → 60 min
+  - "urgent"/"ASAP" → critical priority, "important" → high priority
+  - Resolve relative dates: "tomorrow" → next calendar day, "next Monday" → upcoming Monday
+  - "tonight"/"this evening" → today at 20:00
+
+## Response Guidelines
+- After performing actions, summarize what you did clearly.
+- If a search returns no results, tell the user.
+- For destructive bulk operations, briefly list what will be affected, then proceed.
+- Keep responses short — a few sentences max.
+"""
+
+# Human-readable labels for tool calls
+TOOL_LABELS = {
+    "list_tasks": "Searching tasks",
+    "create_task": "Creating task",
+    "update_task": "Updating task",
+    "delete_task": "Removing task",
+    "complete_task": "Completing task",
+    "find_tasks": "Looking up tasks",
+    "get_calendar_blocks": "Checking calendar",
+    "delete_calendar_block": "Clearing calendar block",
+    "update_calendar_block": "Moving calendar block",
+    "schedule_week": "Running scheduler",
+}
+
+
+def _tool_step_summary(tool_name: str, tool_input: dict) -> str:
+    """Generate a short one-liner for a tool call."""
+    label = TOOL_LABELS.get(tool_name, tool_name)
+    # Add context from input
+    if tool_name == "find_tasks" and tool_input.get("query"):
+        return f'{label} for "{tool_input["query"]}"'
+    if tool_name == "create_task" and tool_input.get("title"):
+        return f'{label}: {tool_input["title"]}'
+    if tool_name == "delete_task":
+        return label
+    if tool_name == "list_tasks":
+        filters = []
+        if tool_input.get("due_date"):
+            filters.append(f"due {tool_input['due_date']}")
+        if tool_input.get("status"):
+            filters.append(f"status={','.join(tool_input['status'])}")
+        if filters:
+            return f"{label} ({', '.join(filters)})"
+    if tool_name == "get_calendar_blocks":
+        if tool_input.get("start_date"):
+            return f"{label} for {tool_input['start_date']}"
+    return label
+
+
+def _tool_result_summary(tool_name: str, result: dict) -> str:
+    """Generate a short summary of a tool result."""
+    if "error" in result:
+        return f"Error: {result['error']}"
+    if tool_name in ("list_tasks", "find_tasks"):
+        count = len(result.get("tasks", []))
+        return f"Found {count} task{'s' if count != 1 else ''}"
+    if tool_name == "create_task":
+        title = result.get("created", {}).get("title", "")
+        return f"Created: {title}"
+    if tool_name == "delete_task":
+        return f"Deleted: {result.get('title', 'task')}"
+    if tool_name == "complete_task":
+        title = result.get("completed", {}).get("title", "")
+        return f"Done: {title}"
+    if tool_name == "get_calendar_blocks":
+        count = len(result.get("blocks", []))
+        return f"Found {count} block{'s' if count != 1 else ''}"
+    if tool_name == "delete_calendar_block":
+        return f"Removed: {result.get('task_title', 'block')}"
+    if tool_name == "schedule_week":
+        return f"Scheduled {result.get('scheduled_count', 0)} tasks"
+    return "Done"
+
+
+def _build_messages(
+    system_content: str,
+    context: list[LLMMessage],
+    user_message: str,
+) -> list[LLMMessage]:
+    messages: list[LLMMessage] = [
+        LLMMessage(role="system", content=system_content),
+    ]
+    messages.extend(context)
+    messages.append(LLMMessage(role="user", content=user_message))
+    return messages
+
+
+def _build_system_prompt(tz: ZoneInfo) -> str:
+    now = datetime.now(tz)
+    return SYSTEM_PROMPT.format(
+        today=now.strftime("%Y-%m-%d"),
+        day_of_week=now.strftime("%A"),
+        current_time=now.strftime("%I:%M %p"),
+        timezone=str(tz),
+    )
+
+
+async def handle_message(
+    message: str,
+    session: AsyncSession,
+    llm: LLMAdapter,
+    session_id: str | None = None,
+    timezone_str: str = "UTC",
+) -> ChatResponse:
+    """Non-streaming handler — returns the full response at once."""
+    settings = Settings()
+    tz = ZoneInfo(timezone_str)
+
+    await _log_turn("user", message, session, session_id)
+    context = await _get_conversation_context(session, session_id)
+    system_content = _build_system_prompt(tz)
+    messages = _build_messages(system_content, context, message)
+
+    actions_taken: list[str] = []
+    final_text = ""
+
+    for _ in range(MAX_TOOL_TURNS):
+        result = await llm.generate_with_tools(
+            messages, TOOL_DEFINITIONS, temperature=0.3, max_tokens=4096
+        )
+        if result.type == "text":
+            final_text = result.content
+            break
+
+        messages.append(LLMMessage(role="assistant", content=result.raw_content))
+        tool_results = []
+        for call in result.tool_calls:
+            output = await execute_tool(call.name, call.input, session, settings)
+            actions_taken.append(call.name)
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": call.id,
+                "content": json.dumps(output),
+            })
+        messages.append(LLMMessage(role="user", content=tool_results))
+    else:
+        final_text = (
+            "I seem to have gotten carried away, sir. Could you try rephrasing?"
+        )
+
+    await _log_turn("assistant", final_text, session, session_id)
+    return ChatResponse(
+        reply=final_text,
+        actions_taken=actions_taken if actions_taken else None,
+    )
+
+
+async def handle_message_stream(
+    message: str,
+    session: AsyncSession,
+    llm: LLMAdapter,
+    session_id: str | None = None,
+    timezone_str: str = "UTC",
+) -> AsyncGenerator[str, None]:
+    """
+    Streaming handler — yields SSE events as the agentic loop progresses.
+
+    Event types:
+      - step: A tool call starting {"tool": str, "summary": str}
+      - step_done: A tool call completed {"tool": str, "summary": str}
+      - done: Final response {"reply": str, "actions_taken": [...]}
+      - error: Something went wrong {"message": str}
+    """
+    settings = Settings()
+    tz = ZoneInfo(timezone_str)
+
+    await _log_turn("user", message, session, session_id)
+    context = await _get_conversation_context(session, session_id)
+    system_content = _build_system_prompt(tz)
+    messages = _build_messages(system_content, context, message)
+
+    actions_taken: list[str] = []
+    final_text = ""
+
+    try:
+        for _ in range(MAX_TOOL_TURNS):
+            result = await llm.generate_with_tools(
+                messages, TOOL_DEFINITIONS, temperature=0.3, max_tokens=4096
+            )
+
+            if result.type == "text":
+                final_text = result.content
+                break
+
+            messages.append(
+                LLMMessage(role="assistant", content=result.raw_content)
+            )
+
+            tool_results = []
+            for call in result.tool_calls:
+                # Emit step event
+                step_summary = _tool_step_summary(call.name, call.input)
+                yield _sse("step", {
+                    "tool": call.name,
+                    "summary": step_summary,
+                    "input": call.input,
+                })
+
+                output = await execute_tool(
+                    call.name, call.input, session, settings
+                )
+                actions_taken.append(call.name)
+
+                # Emit step_done event
+                result_summary = _tool_result_summary(call.name, output)
+                yield _sse("step_done", {
+                    "tool": call.name,
+                    "summary": result_summary,
+                })
+
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": call.id,
+                    "content": json.dumps(output),
+                })
+
+            messages.append(LLMMessage(role="user", content=tool_results))
+        else:
+            final_text = (
+                "I seem to have gotten carried away, sir. "
+                "Could you try rephrasing?"
+            )
+
+        await _log_turn("assistant", final_text, session, session_id)
+        yield _sse("done", {
+            "reply": final_text,
+            "actions_taken": actions_taken,
+        })
+
+    except Exception as exc:
+        logger.error("Stream error: %s", exc)
+        yield _sse("error", {"message": str(exc)})
+
+
+def _sse(event: str, data: dict) -> str:
+    """Format a Server-Sent Event."""
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
 
 async def _get_conversation_context(
-    session: AsyncSession, session_id: str | None, limit: int = 6
+    session: AsyncSession, session_id: str | None, limit: int = 10
 ) -> list[LLMMessage]:
-    """Fetch the last N messages for this session to use as context."""
-    from sqlalchemy import select, desc
-
-    query = select(ConversationLog).order_by(desc(ConversationLog.created_at)).limit(limit)
+    query = (
+        select(ConversationLog)
+        .order_by(desc(ConversationLog.created_at))
+        .limit(limit)
+    )
     if session_id:
         query = query.where(ConversationLog.session_id == session_id)
     result = await session.execute(query)
@@ -37,396 +305,11 @@ async def _log_turn(
     content: str,
     session: AsyncSession,
     session_id: str | None = None,
-    intent: ParsedIntent | None = None,
 ) -> None:
     log = ConversationLog(
         role=role,
         content=content,
         session_id=session_id,
-        intent_type=intent.intent_type.value if intent else None,
-        intent_data_json=json.dumps(intent.model_dump()) if intent else None,
     )
     session.add(log)
     await session.commit()
-
-
-def _format_task_list(tasks) -> str:
-    if not tasks:
-        return "No tasks found."
-    lines = []
-    for t in tasks:
-        due = f" (due {t.due_date})" if t.due_date else ""
-        priority = f" [{t.priority.value}]" if t.priority.value != "none" else ""
-        status_icon = {"done": "✓", "todo": "○", "in_progress": "◎", "snoozed": "⏸", "cancelled": "✗"}.get(
-            t.status.value, "○"
-        )
-        lines.append(f"{status_icon} {t.title}{priority}{due}")
-    return "\n".join(lines)
-
-
-def _build_task_confirmation(task) -> str:
-    lines = [f"  Title: {task.title}"]
-    if task.due_date:
-        time_part = f" at {task.due_time}" if task.due_time else ""
-        lines.append(f"  When: {task.due_date}{time_part}")
-    if task.priority.value != "none":
-        lines.append(f"  Priority: {task.priority.value}")
-    if task.estimated_minutes:
-        lines.append(f"  Estimated: {task.estimated_minutes} min")
-    if task.category:
-        lines.append(f"  Category: {task.category}")
-    return "\n".join(lines)
-
-
-async def handle_message(
-    message: str,
-    session: AsyncSession,
-    llm: LLMAdapter,
-    session_id: str | None = None,
-    timezone_str: str = "UTC",
-) -> ChatResponse:
-    # Log user message
-    await _log_turn("user", message, session, session_id)
-
-    # Get conversation context
-    context = await _get_conversation_context(session, session_id)
-
-    # Parse intent
-    try:
-        intent = await intent_engine.parse_intent(
-            message, llm, timezone_str, conversation_context=context
-        )
-    except Exception as exc:
-        logger.error("Intent parsing failed: %s", exc)
-        reply = "I had trouble understanding that. Could you rephrase?"
-        await _log_turn("assistant", reply, session, session_id)
-        return ChatResponse(reply=reply)
-
-    logger.info("Intent: %s (%.2f) entities=%s", intent.intent_type, intent.confidence, intent.entities)
-
-    # Route to handler
-    response = await _route_intent(intent, message, session, llm, timezone_str)
-
-    # Log assistant response
-    await _log_turn("assistant", response.reply, session, session_id, intent)
-
-    return response
-
-
-async def _route_intent(
-    intent: ParsedIntent,
-    original_message: str,
-    session: AsyncSession,
-    llm: LLMAdapter,
-    timezone_str: str,
-) -> ChatResponse:
-    match intent.intent_type:
-        case IntentType.ADD_TASK:
-            return await _handle_add_task(intent, session)
-
-        case IntentType.QUERY_TASKS:
-            return await _handle_query_tasks(intent, session)
-
-        case IntentType.COMPLETE_TASK:
-            return await _handle_complete_task(intent, session)
-
-        case IntentType.DELETE_TASK:
-            return await _handle_delete_task(intent, session)
-
-        case IntentType.RESCHEDULE_TASK:
-            return await _handle_reschedule_task(intent, session)
-
-        case IntentType.SNOOZE_TASK:
-            return await _handle_snooze_task(intent, session)
-
-        case IntentType.EDIT_TASK:
-            return await _handle_edit_task(intent, session)
-
-        case IntentType.ADD_NOTE:
-            return await _handle_add_note(intent, session)
-
-        case IntentType.AMBIGUOUS:
-            question = intent.clarification_needed or "Could you be more specific?"
-            return ChatResponse(reply=question, intent_type=intent.intent_type.value)
-
-        case IntentType.CONVERSATIONAL | IntentType.GET_PLAN | IntentType.GET_REVIEW | IntentType.GET_INSIGHTS:
-            return await _handle_conversational(original_message, session, llm, timezone_str)
-
-        case _:
-            return await _handle_conversational(original_message, session, llm, timezone_str)
-
-
-async def _handle_add_task(intent: ParsedIntent, session: AsyncSession) -> ChatResponse:
-    e = intent.entities
-    if not e.get("title"):
-        return ChatResponse(
-            reply="What would you like to call this task?",
-            intent_type=intent.intent_type.value,
-        )
-
-    task = await task_service.create_from_intent_entities(e, session)
-
-    confirmation = _build_task_confirmation(task)
-    quick_actions = [
-        QuickAction(label="Edit", action="edit_task", payload={"task_id": task.id}),
-        QuickAction(label="Delete", action="delete_task", payload={"task_id": task.id}),
-    ]
-    if task.due_date:
-        quick_actions.insert(
-            0,
-            QuickAction(label="Mark Done", action="complete_task", payload={"task_id": task.id}),
-        )
-
-    from app.schemas.task import TaskResponse
-    return ChatResponse(
-        reply=f"Added:\n{confirmation}",
-        intent_type=intent.intent_type.value,
-        task=TaskResponse.model_validate(task),
-        quick_actions=quick_actions,
-    )
-
-
-async def _handle_query_tasks(intent: ParsedIntent, session: AsyncSession) -> ChatResponse:
-    e = intent.entities
-    filter_status = None
-    if e.get("filter_status"):
-        filter_status = [e["filter_status"]] if isinstance(e["filter_status"], str) else e["filter_status"]
-
-    due_before = None
-    if e.get("filter_date"):
-        try:
-            due_before = date.fromisoformat(str(e["filter_date"]))
-        except (ValueError, TypeError):
-            pass
-
-    tasks, total = await task_service.list_tasks(
-        session,
-        status=filter_status,
-        priority=e.get("filter_priority"),
-        due_before=due_before,
-        limit=20,
-    )
-
-    task_list = _format_task_list(tasks)
-    from app.schemas.task import TaskResponse
-    reply = f"You have {total} task(s):\n\n{task_list}" if tasks else "No tasks found matching your query."
-
-    return ChatResponse(
-        reply=reply,
-        intent_type=intent.intent_type.value,
-        tasks=[TaskResponse.model_validate(t) for t in tasks],
-    )
-
-
-async def _handle_complete_task(intent: ParsedIntent, session: AsyncSession) -> ChatResponse:
-    task_ref = intent.entities.get("task_ref", "")
-    matches = await task_service.find_by_fuzzy_title(task_ref, session)
-
-    if not matches:
-        return ChatResponse(
-            reply=f"I couldn't find a task matching \"{task_ref}\". Check your task list?",
-            intent_type=intent.intent_type.value,
-        )
-    if len(matches) > 1:
-        options = "\n".join(f"{i+1}. {t.title}" for i, t in enumerate(matches[:4]))
-        return ChatResponse(
-            reply=f"Which task did you complete?\n{options}",
-            intent_type=intent.intent_type.value,
-        )
-
-    task = await task_service.complete_task(matches[0].id, session)
-    from app.schemas.task import TaskResponse
-    return ChatResponse(
-        reply=f"Marked done: {task.title}",
-        intent_type=intent.intent_type.value,
-        task=TaskResponse.model_validate(task),
-    )
-
-
-async def _handle_delete_task(intent: ParsedIntent, session: AsyncSession) -> ChatResponse:
-    task_ref = intent.entities.get("task_ref", "")
-    matches = await task_service.find_by_fuzzy_title(task_ref, session)
-
-    if not matches:
-        return ChatResponse(
-            reply=f"I couldn't find a task matching \"{task_ref}\".",
-            intent_type=intent.intent_type.value,
-        )
-    if len(matches) > 1:
-        options = "\n".join(f"{i+1}. {t.title}" for i, t in enumerate(matches[:4]))
-        return ChatResponse(
-            reply=f"Which task do you want to delete?\n{options}",
-            intent_type=intent.intent_type.value,
-        )
-
-    task = matches[0]
-    await task_service.delete_task(task.id, session)
-    return ChatResponse(
-        reply=f"Deleted: {task.title}",
-        intent_type=intent.intent_type.value,
-    )
-
-
-async def _handle_reschedule_task(intent: ParsedIntent, session: AsyncSession) -> ChatResponse:
-    e = intent.entities
-    task_ref = e.get("task_ref", "")
-    matches = await task_service.find_by_fuzzy_title(task_ref, session)
-
-    if not matches:
-        return ChatResponse(
-            reply=f"I couldn't find a task matching \"{task_ref}\".",
-            intent_type=intent.intent_type.value,
-        )
-    if len(matches) > 1:
-        options = "\n".join(f"{i+1}. {t.title}" for i, t in enumerate(matches[:4]))
-        return ChatResponse(
-            reply=f"Which task do you want to reschedule?\n{options}",
-            intent_type=intent.intent_type.value,
-        )
-
-    task = matches[0]
-    update_data: dict = {}
-    if e.get("new_date"):
-        try:
-            update_data["due_date"] = date.fromisoformat(str(e["new_date"]))
-            task.times_rescheduled += 1
-        except (ValueError, TypeError):
-            pass
-    if e.get("new_time"):
-        update_data["due_time"] = e["new_time"]
-
-    if not update_data:
-        return ChatResponse(
-            reply="When would you like to reschedule it to?",
-            intent_type=intent.intent_type.value,
-        )
-
-    from app.schemas.task import TaskUpdate, TaskResponse
-    updated = await task_service.update_task(task.id, TaskUpdate(**update_data), session)
-    due_str = f"{updated.due_date}" + (f" at {updated.due_time}" if updated.due_time else "")
-    return ChatResponse(
-        reply=f"Rescheduled \"{updated.title}\" to {due_str}.",
-        intent_type=intent.intent_type.value,
-        task=TaskResponse.model_validate(updated),
-    )
-
-
-async def _handle_snooze_task(intent: ParsedIntent, session: AsyncSession) -> ChatResponse:
-    e = intent.entities
-    task_ref = e.get("task_ref", "")
-    snooze_minutes = int(e.get("snooze_minutes", 30))
-    matches = await task_service.find_by_fuzzy_title(task_ref, session)
-
-    if not matches:
-        return ChatResponse(
-            reply=f"I couldn't find a task matching \"{task_ref}\".",
-            intent_type=intent.intent_type.value,
-        )
-
-    task = await task_service.snooze_task(matches[0].id, snooze_minutes, session)
-    from app.schemas.task import TaskResponse
-    return ChatResponse(
-        reply=f"Snoozed \"{task.title}\" for {snooze_minutes} minutes.",
-        intent_type=intent.intent_type.value,
-        task=TaskResponse.model_validate(task),
-    )
-
-
-async def _handle_edit_task(intent: ParsedIntent, session: AsyncSession) -> ChatResponse:
-    e = intent.entities
-    task_ref = e.get("task_ref", "")
-    matches = await task_service.find_by_fuzzy_title(task_ref, session)
-
-    if not matches:
-        return ChatResponse(
-            reply=f"I couldn't find a task matching \"{task_ref}\".",
-            intent_type=intent.intent_type.value,
-        )
-    if len(matches) > 1:
-        options = "\n".join(f"{i+1}. {t.title}" for i, t in enumerate(matches[:4]))
-        return ChatResponse(
-            reply=f"Which task do you want to edit?\n{options}",
-            intent_type=intent.intent_type.value,
-        )
-
-    task = matches[0]
-    changes = e.get("changes", {})
-    if not changes:
-        # Changes may be at top-level entities
-        changes = {k: v for k, v in e.items() if k not in ("task_ref",) and v is not None}
-
-    from app.schemas.task import TaskUpdate, TaskResponse
-    from app.models.task import Priority, EnergyLevel, TaskStatus
-
-    update_fields: dict = {}
-    if changes.get("title"):
-        update_fields["title"] = changes["title"]
-    if changes.get("priority"):
-        priority_map = {"critical": "critical", "high": "high", "medium": "medium", "low": "low"}
-        p = priority_map.get(str(changes["priority"]).lower())
-        if p:
-            update_fields["priority"] = Priority(p)
-    if changes.get("due_date"):
-        try:
-            update_fields["due_date"] = date.fromisoformat(str(changes["due_date"]))
-        except (ValueError, TypeError):
-            pass
-    if changes.get("due_time"):
-        update_fields["due_time"] = changes["due_time"]
-
-    if not update_fields:
-        return ChatResponse(
-            reply=f"What would you like to change about \"{task.title}\"?",
-            intent_type=intent.intent_type.value,
-        )
-
-    updated = await task_service.update_task(task.id, TaskUpdate(**update_fields), session)
-    changed_summary = ", ".join(f"{k}={v}" for k, v in update_fields.items())
-    return ChatResponse(
-        reply=f"Updated \"{updated.title}\" — {changed_summary}.",
-        intent_type=intent.intent_type.value,
-        task=TaskResponse.model_validate(updated),
-    )
-
-
-async def _handle_add_note(intent: ParsedIntent, session: AsyncSession) -> ChatResponse:
-    e = intent.entities
-    task_ref = e.get("task_ref", "")
-    note_content = e.get("note_content", "")
-
-    if not note_content:
-        return ChatResponse(
-            reply="What note would you like to add?",
-            intent_type=intent.intent_type.value,
-        )
-
-    matches = await task_service.find_by_fuzzy_title(task_ref, session)
-    if not matches:
-        return ChatResponse(
-            reply=f"I couldn't find a task matching \"{task_ref}\".",
-            intent_type=intent.intent_type.value,
-        )
-
-    await task_service.add_note(matches[0].id, note_content, session)
-    return ChatResponse(
-        reply=f"Note added to \"{matches[0].title}\".",
-        intent_type=intent.intent_type.value,
-    )
-
-
-async def _handle_conversational(
-    message: str,
-    session: AsyncSession,
-    llm: LLMAdapter,
-    timezone_str: str,
-) -> ChatResponse:
-    today = date.today()
-    system_prompt = build_conversational_prompt(today, timezone_str)
-
-    context = await _get_conversation_context(session, None, limit=8)
-    messages = [LLMMessage(role="system", content=system_prompt)]
-    messages.extend(context)
-    messages.append(LLMMessage(role="user", content=message))
-
-    reply = await llm.generate(messages, temperature=0.7, max_tokens=500)
-    return ChatResponse(reply=reply, intent_type=IntentType.CONVERSATIONAL.value)

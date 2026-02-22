@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { getWeekStart, getWeekDays, toISODate } from '@/utils/calendar'
 import { getWeekBlocks, triggerSchedule, deleteBlock, toggleBlockLock } from '@/api/calendar'
 import type { CalendarBlock } from '@/types/calendar'
@@ -6,21 +6,30 @@ import HourLabels from './HourLabels'
 import DayColumn from './DayColumn'
 import Button from '@/components/ui/Button'
 import Spinner from '@/components/ui/Spinner'
+import { cn } from '@/utils/cn'
+import { isSameDay, shortDayName } from '@/utils/calendar'
 
-const WORK_START = 7
-const WORK_END = 22
+/** Pixels per hour row — consistent across labels + day columns */
+export const HOUR_HEIGHT = 48
 
-export default function WeekView() {
+const WORK_START = 0
+const WORK_END = 24
+
+interface Props {
+  onBlockClick?: (block: CalendarBlock) => void
+}
+
+export default function WeekView({ onBlockClick }: Props = {}) {
   const [weekStart, setWeekStart] = useState<Date>(getWeekStart())
   const [blocks, setBlocks] = useState<CalendarBlock[]>([])
   const [loading, setLoading] = useState(true)
   const [scheduling, setScheduling] = useState(false)
   const [unschedulableCount, setUnschedulableCount] = useState(0)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const didScroll = useRef(false)
 
   const weekDays = getWeekDays(weekStart)
   const weekStartStr = toISODate(weekStart)
-  const weekEndDate = new Date(weekStart)
-  weekEndDate.setDate(weekEndDate.getDate() + 6)
 
   const fetchBlocks = useCallback(async () => {
     setLoading(true)
@@ -38,6 +47,16 @@ export default function WeekView() {
   useEffect(() => {
     fetchBlocks()
   }, [fetchBlocks])
+
+  // Auto-scroll to current hour on first load
+  useEffect(() => {
+    if (!loading && scrollRef.current && !didScroll.current) {
+      didScroll.current = true
+      const now = new Date()
+      const scrollToHour = Math.max(0, now.getHours() - 1)
+      scrollRef.current.scrollTop = scrollToHour * HOUR_HEIGHT
+    }
+  }, [loading])
 
   const handleSchedule = async (force: boolean = false) => {
     setScheduling(true)
@@ -77,9 +96,13 @@ export default function WeekView() {
     const next = new Date(weekStart)
     next.setDate(next.getDate() + delta * 7)
     setWeekStart(next)
+    didScroll.current = false
   }
 
-  const goToToday = () => setWeekStart(getWeekStart())
+  const goToToday = () => {
+    setWeekStart(getWeekStart())
+    didScroll.current = false
+  }
 
   // Group blocks by date
   const blocksByDate = new Map<string, CalendarBlock[]>()
@@ -93,29 +116,31 @@ export default function WeekView() {
   const formatHeaderDate = (d: Date) =>
     d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
+  const today = new Date()
+
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="border-b border-border px-4 py-3 flex items-center justify-between shrink-0">
+      {/* Top toolbar */}
+      <div className="border-b border-border px-4 py-2.5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-medium text-text-primary">Calendar</h2>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => navigateWeek(-1)}
-              className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-bg-hover text-text-secondary transition-colors text-sm"
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-bg-hover text-text-secondary transition-colors text-sm"
             >
               ‹
             </button>
-            <span className="text-xs text-text-secondary min-w-[140px] text-center">
-              {formatHeaderDate(weekDays[0])} — {formatHeaderDate(weekDays[6])}
-            </span>
             <button
               onClick={() => navigateWeek(1)}
-              className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-bg-hover text-text-secondary transition-colors text-sm"
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-bg-hover text-text-secondary transition-colors text-sm"
             >
               ›
             </button>
           </div>
+          <span className="text-sm text-text-primary font-medium">
+            {formatHeaderDate(weekDays[0])} — {formatHeaderDate(weekDays[6])}
+          </span>
           <Button variant="ghost" size="sm" onClick={goToToday}>
             Today
           </Button>
@@ -150,38 +175,89 @@ export default function WeekView() {
         </div>
       )}
 
-      {/* Calendar grid */}
+      {/* Calendar */}
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
           <Spinner className="w-6 h-6" />
         </div>
       ) : (
-        <div className="flex-1 overflow-auto">
-          <div className="grid min-h-full" style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
-            {/* Hour labels column */}
-            <div className="border-r border-border">
-              {/* Empty header cell */}
-              <div className="h-[52px] border-b border-border" />
-              <HourLabels workStartHour={WORK_START} workEndHour={WORK_END} />
-            </div>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Sticky day headers */}
+          <div
+            className="grid shrink-0 border-b border-border"
+            style={{ gridTemplateColumns: '56px repeat(7, 1fr)' }}
+          >
+            {/* Gutter corner */}
+            <div className="border-r border-border/50" />
 
-            {/* Day columns */}
+            {/* Day headers */}
             {weekDays.map((day) => {
-              const dateKey = toISODate(day)
-              const dayBlocks = blocksByDate.get(dateKey) || []
+              const isToday = isSameDay(day, today)
               return (
-                <div key={dateKey} className="border-r border-border/30 last:border-r-0">
-                  <DayColumn
-                    date={day}
-                    blocks={dayBlocks}
-                    workStartHour={WORK_START}
-                    workEndHour={WORK_END}
-                    onLockToggle={handleLockToggle}
-                    onDelete={handleDelete}
-                  />
+                <div
+                  key={toISODate(day)}
+                  className={cn(
+                    'text-center py-2 border-r border-border/20 last:border-r-0',
+                  )}
+                >
+                  <p className={cn(
+                    'text-[11px] uppercase tracking-wider font-medium',
+                    isToday ? 'text-accent' : 'text-text-muted',
+                  )}>
+                    {shortDayName(day)}
+                  </p>
+                  <div className="flex justify-center mt-0.5">
+                    <span
+                      className={cn(
+                        'text-lg leading-none font-medium',
+                        isToday
+                          ? 'text-bg-primary bg-accent w-8 h-8 rounded-full flex items-center justify-center'
+                          : 'text-text-primary w-8 h-8 flex items-center justify-center',
+                      )}
+                    >
+                      {day.getDate()}
+                    </span>
+                  </div>
                 </div>
               )
             })}
+          </div>
+
+          {/* Scrollable time grid */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden">
+            <div
+              className="grid"
+              style={{ gridTemplateColumns: '56px repeat(7, 1fr)' }}
+            >
+              {/* Hour labels gutter */}
+              <div className="relative border-r border-border/50">
+                <HourLabels
+                  workStartHour={WORK_START}
+                  workEndHour={WORK_END}
+                  hourHeight={HOUR_HEIGHT}
+                />
+              </div>
+
+              {/* Day columns */}
+              {weekDays.map((day) => {
+                const dateKey = toISODate(day)
+                const dayBlocks = blocksByDate.get(dateKey) || []
+                const isToday = isSameDay(day, today)
+                return (
+                  <DayColumn
+                    key={dateKey}
+                    blocks={dayBlocks}
+                    workStartHour={WORK_START}
+                    workEndHour={WORK_END}
+                    hourHeight={HOUR_HEIGHT}
+                    isToday={isToday}
+                    onLockToggle={handleLockToggle}
+                    onDelete={handleDelete}
+                    onBlockClick={onBlockClick}
+                  />
+                )
+              })}
+            </div>
           </div>
         </div>
       )}

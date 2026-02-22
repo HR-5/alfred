@@ -68,7 +68,7 @@ export default function LandingPage() {
             GitHub
           </a>
           <button
-            onClick={() => navigate('/chat')}
+            onClick={() => navigate('/app')}
             className="px-4 py-2 text-sm font-medium rounded-lg bg-accent text-bg-primary hover:bg-accent-hover transition-colors"
           >
             Open Alfred
@@ -97,7 +97,7 @@ export default function LandingPage() {
 
         <div className="flex items-center justify-center gap-4">
           <button
-            onClick={() => navigate('/chat')}
+            onClick={() => navigate('/app')}
             className="group px-7 py-3.5 rounded-xl bg-accent text-bg-primary font-semibold text-base hover:bg-accent-hover transition-all hover:shadow-lg hover:shadow-accent/20"
           >
             Get Started
@@ -222,7 +222,7 @@ export default function LandingPage() {
           Open source. Self-hosted. Your data, your rules.
         </p>
         <button
-          onClick={() => navigate('/chat')}
+          onClick={() => navigate('/app')}
           className="group px-8 py-4 rounded-xl bg-accent text-bg-primary font-semibold text-lg hover:bg-accent-hover transition-all hover:shadow-lg hover:shadow-accent/20"
         >
           Enter the Batcave

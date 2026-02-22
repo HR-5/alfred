@@ -5,7 +5,7 @@ from typing import TypeVar
 from pydantic import BaseModel, ValidationError
 
 from app.llm.base import LLMAdapter
-from app.llm.types import LLMConfig, LLMMessage
+from app.llm.types import LLMConfig, LLMMessage, LLMToolResponse
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
@@ -83,6 +83,16 @@ class OpenAIAdapter(LLMAdapter):
                     raise ValueError(f"Structured output failed after {retries + 1} attempts") from exc
 
         raise RuntimeError("Unreachable")
+
+    async def generate_with_tools(
+        self,
+        messages: list[LLMMessage],
+        tools: list[dict],
+        *,
+        temperature: float = 0.5,
+        max_tokens: int = 4096,
+    ) -> LLMToolResponse:
+        raise NotImplementedError("OpenAI adapter does not support tool use yet. Use Anthropic.")
 
     async def health_check(self) -> bool:
         try:

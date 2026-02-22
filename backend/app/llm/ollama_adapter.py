@@ -6,7 +6,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from app.llm.base import LLMAdapter
-from app.llm.types import LLMConfig, LLMMessage
+from app.llm.types import LLMConfig, LLMMessage, LLMToolResponse
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
@@ -91,6 +91,16 @@ class OllamaAdapter(LLMAdapter):
                     ) from exc
 
         raise RuntimeError("Unreachable")
+
+    async def generate_with_tools(
+        self,
+        messages: list[LLMMessage],
+        tools: list[dict],
+        *,
+        temperature: float = 0.5,
+        max_tokens: int = 4096,
+    ) -> LLMToolResponse:
+        raise NotImplementedError("Ollama adapter does not support tool use. Use Anthropic.")
 
     async def health_check(self) -> bool:
         try:

@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
-from app.llm.types import LLMConfig, LLMMessage
+from app.llm.types import LLMConfig, LLMMessage, LLMToolResponse
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -39,6 +39,18 @@ class LLMAdapter(ABC):
         Generate a response conforming to a Pydantic schema.
         Validates output and retries on schema violations.
         """
+        ...
+
+    @abstractmethod
+    async def generate_with_tools(
+        self,
+        messages: list[LLMMessage],
+        tools: list[dict[str, Any]],
+        *,
+        temperature: float = 0.5,
+        max_tokens: int = 4096,
+    ) -> LLMToolResponse:
+        """Generate a response that may include tool calls."""
         ...
 
     @abstractmethod

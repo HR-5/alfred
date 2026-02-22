@@ -1,92 +1,90 @@
 import { cn } from '@/utils/cn'
-import { blockPosition, shortDayName, isSameDay } from '@/utils/calendar'
 import type { CalendarBlock } from '@/types/calendar'
 import TimeBlock from './TimeBlock'
 import CurrentTimeLine from './CurrentTimeLine'
 
 interface Props {
-  date: Date
   blocks: CalendarBlock[]
   workStartHour: number
   workEndHour: number
+  hourHeight: number
+  isToday: boolean
   onLockToggle: (blockId: string) => void
   onDelete: (blockId: string) => void
+  onBlockClick?: (block: CalendarBlock) => void
 }
 
 export default function DayColumn({
-  date,
   blocks,
   workStartHour,
   workEndHour,
+  hourHeight,
+  isToday,
   onLockToggle,
   onDelete,
+  onBlockClick,
 }: Props) {
-  const today = new Date()
-  const isToday = isSameDay(date, today)
-  const hours = Array.from(
-    { length: workEndHour - workStartHour },
-    (_, i) => workStartHour + i,
-  )
+  const totalHours = workEndHour - workStartHour
+  const totalHeight = totalHours * hourHeight
 
   return (
-    <div className="flex flex-col min-w-0">
-      {/* Column header */}
-      <div
-        className={cn(
-          'text-center py-2 border-b border-border sticky top-0 z-10',
-          isToday ? 'bg-accent/5' : 'bg-bg-secondary',
-        )}
-      >
-        <p className="text-[10px] text-text-muted uppercase tracking-wider">
-          {shortDayName(date)}
-        </p>
-        <p
-          className={cn(
-            'text-sm font-semibold mt-0.5',
-            isToday
-              ? 'text-accent bg-accent/15 w-7 h-7 rounded-full flex items-center justify-center mx-auto'
-              : 'text-text-primary',
-          )}
-        >
-          {date.getDate()}
-        </p>
-      </div>
+    <div
+      className={cn(
+        'relative border-r border-border/20 last:border-r-0',
+        isToday && 'bg-accent/[0.03]',
+      )}
+      style={{ height: totalHeight }}
+    >
+      {/* Hour grid lines — top border for each hour after the first */}
+      {Array.from({ length: totalHours - 1 }, (_, i) => (
+        <div
+          key={i}
+          className="absolute left-0 right-0 border-t border-border/20"
+          style={{ top: (i + 1) * hourHeight }}
+        />
+      ))}
 
-      {/* Time grid + blocks */}
-      <div className="relative flex-1">
-        {/* Hour grid lines */}
-        {hours.map((hour) => (
-          <div
-            key={hour}
-            className={cn('h-15 border-b border-border/30', isToday && 'bg-accent/[0.02]')}
+      {/* Half-hour dashed lines */}
+      {Array.from({ length: totalHours }, (_, i) => (
+        <div
+          key={`half-${i}`}
+          className="absolute left-0 right-0 border-t border-border/10"
+          style={{ top: i * hourHeight + hourHeight / 2 }}
+        />
+      ))}
+
+      {/* Current time line */}
+      {isToday && (
+        <CurrentTimeLine
+          workStartHour={workStartHour}
+          workEndHour={workEndHour}
+          hourHeight={hourHeight}
+        />
+      )}
+
+      {/* Task blocks */}
+      {blocks.map((block) => {
+        const startH = timeToHours(block.start_time)
+        const endH = timeToHours(block.end_time)
+        const top = (startH - workStartHour) * hourHeight
+        const height = (endH - startH) * hourHeight
+        return (
+          <TimeBlock
+            key={block.id}
+            block={block}
+            top={top}
+            height={Math.max(height, 20)}
+            onLockToggle={onLockToggle}
+            onDelete={onDelete}
+            onClick={onBlockClick}
           />
-        ))}
-
-        {/* Current time line */}
-        {isToday && (
-          <CurrentTimeLine workStartHour={workStartHour} workEndHour={workEndHour} />
-        )}
-
-        {/* Task blocks */}
-        {blocks.map((block) => {
-          const pos = blockPosition(
-            block.start_time,
-            block.end_time,
-            workStartHour,
-            workEndHour,
-          )
-          return (
-            <TimeBlock
-              key={block.id}
-              block={block}
-              topPercent={pos.topPercent}
-              heightPercent={pos.heightPercent}
-              onLockToggle={onLockToggle}
-              onDelete={onDelete}
-            />
-          )
-        })}
-      </div>
+        )
+      })}
     </div>
   )
+}
+
+function timeToHours(timeStr: string): number {
+  const [h, m] = timeStr.split(':').map(Number)
+  return h + m / 60
 }
