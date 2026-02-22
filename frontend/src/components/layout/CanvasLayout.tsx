@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import Header from './Header'
 import WeekView from '@/components/calendar/WeekView'
+import DayView from '@/components/calendar/DayView'
 import ChatPanel from '@/components/chat/ChatPanel'
 import TaskDrawer from '@/components/tasks/TaskDrawer'
 import { useChatStore } from '@/store/chatStore'
@@ -70,12 +71,12 @@ export default function CanvasLayout() {
         </div>
       </div>
 
-      {/* Mobile layout — tabbed */}
+      {/* Mobile layout — tabbed, uses DayView instead of WeekView */}
       <div className="md:hidden flex-1 overflow-hidden">
         {mobileTab === 'calendar' ? (
           <div className="h-full flex flex-col overflow-hidden">
             <div className="flex-1 overflow-hidden">
-              <WeekView onBlockClick={handleBlockClick} />
+              <DayView onBlockClick={handleBlockClick} />
             </div>
             <TaskDrawer />
           </div>

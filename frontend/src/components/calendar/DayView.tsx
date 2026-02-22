@@ -1,0 +1,158 @@
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { toISODate, isSameDay } from '@/utils/calendar'
+import { getWeekBlocks, deleteBlock, toggleBlockLock } from '@/api/calendar'
+import type { CalendarBlock } from '@/types/calendar'
+import HourLabels from './HourLabels'
+import DayColumn from './DayColumn'
+import Button from '@/components/ui/Button'
+import Spinner from '@/components/ui/Spinner'
+import { cn } from '@/utils/cn'
+
+const HOUR_HEIGHT = 48
+const WORK_START = 0
+const WORK_END = 24
+
+interface Props {
+  onBlockClick?: (block: CalendarBlock) => void
+}
+
+export default function DayView({ onBlockClick }: Props) {
+  const [currentDate, setCurrentDate] = useState<Date>(new Date())
+  const [blocks, setBlocks] = useState<CalendarBlock[]>([])
+  const [loading, setLoading] = useState(true)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const didScroll = useRef(false)
+
+  const dateStr = toISODate(currentDate)
+  const today = new Date()
+  const isToday = isSameDay(currentDate, today)
+
+  // We fetch the week and filter to the current day (reuses existing API)
+  const fetchBlocks = useCallback(async () => {
+    setLoading(true)
+    try {
+      // Get week start for this date
+      const d = new Date(currentDate)
+      const day = d.getDay()
+      const diff = day === 0 ? -6 : 1 - day
+      d.setDate(d.getDate() + diff)
+      const weekStart = toISODate(d)
+
+      const resp = await getWeekBlocks(weekStart)
+      setBlocks(resp.blocks.filter((b) => b.scheduled_date === dateStr))
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false)
+    }
+  }, [dateStr, currentDate])
+
+  useEffect(() => {
+    fetchBlocks()
+  }, [fetchBlocks])
+
+  // Auto-scroll to current hour on first load
+  useEffect(() => {
+    if (!loading && scrollRef.current && !didScroll.current) {
+      didScroll.current = true
+      const now = new Date()
+      const scrollToHour = Math.max(0, now.getHours() - 1)
+      scrollRef.current.scrollTop = scrollToHour * HOUR_HEIGHT
+    }
+  }, [loading])
+
+  const navigateDay = (delta: number) => {
+    const next = new Date(currentDate)
+    next.setDate(next.getDate() + delta)
+    setCurrentDate(next)
+    didScroll.current = false
+  }
+
+  const goToToday = () => {
+    setCurrentDate(new Date())
+    didScroll.current = false
+  }
+
+  const handleDelete = async (blockId: string) => {
+    try {
+      await deleteBlock(blockId)
+      setBlocks((prev) => prev.filter((b) => b.id !== blockId))
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleLockToggle = async (blockId: string) => {
+    try {
+      const updated = await toggleBlockLock(blockId)
+      setBlocks((prev) => prev.map((b) => (b.id === updated.id ? updated : b)))
+    } catch {
+      // ignore
+    }
+  }
+
+  const formatDate = (d: Date) =>
+    d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Day toolbar */}
+      <div className="border-b border-border px-3 py-2 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigateDay(-1)}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-bg-hover text-text-secondary transition-colors text-sm"
+          >
+            ‹
+          </button>
+          <button
+            onClick={() => navigateDay(1)}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-bg-hover text-text-secondary transition-colors text-sm"
+          >
+            ›
+          </button>
+          <span className={cn('text-sm font-medium', isToday ? 'text-accent' : 'text-text-primary')}>
+            {formatDate(currentDate)}
+          </span>
+        </div>
+        {!isToday && (
+          <Button variant="ghost" size="sm" onClick={goToToday}>
+            Today
+          </Button>
+        )}
+      </div>
+
+      {/* Calendar grid */}
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <Spinner className="w-6 h-6" />
+        </div>
+      ) : (
+        <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="grid" style={{ gridTemplateColumns: '48px 1fr' }}>
+            {/* Hour labels gutter */}
+            <div className="relative border-r border-border/50">
+              <HourLabels
+                workStartHour={WORK_START}
+                workEndHour={WORK_END}
+                hourHeight={HOUR_HEIGHT}
+              />
+            </div>
+
+            {/* Day column */}
+            <DayColumn
+              blocks={blocks}
+              workStartHour={WORK_START}
+              workEndHour={WORK_END}
+              hourHeight={HOUR_HEIGHT}
+              isToday={isToday}
+              onLockToggle={handleLockToggle}
+              onDelete={handleDelete}
+              onBlockClick={onBlockClick}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
