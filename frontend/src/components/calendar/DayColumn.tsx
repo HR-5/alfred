@@ -65,7 +65,9 @@ export default function DayColumn({
       {/* Task blocks */}
       {blocks.map((block) => {
         const startH = timeToHours(block.start_time)
-        const endH = timeToHours(block.end_time)
+        let endH = timeToHours(block.end_time)
+        // Cross-midnight: end_time wraps to next day (e.g. 00:30 < 22:30)
+        if (endH <= startH) endH = workEndHour
         const top = (startH - workStartHour) * hourHeight
         const height = (endH - startH) * hourHeight
         return (

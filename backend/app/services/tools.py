@@ -202,6 +202,38 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": [],
         },
     },
+    {
+        "name": "sync_google_calendar",
+        "description": "Trigger a two-way sync with Google Calendar. Pushes Alfred blocks to Google and pulls Google events into Alfred.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "days_ahead": {
+                    "type": "integer",
+                    "description": "Number of days ahead to sync. Defaults to 14.",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "get_google_events",
+        "description": "Fetch events directly from Google Calendar for a date range. Useful for answering 'what's on my Google Calendar?'",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "start_date": {
+                    "type": "string",
+                    "description": "Start date (YYYY-MM-DD). Defaults to today.",
+                },
+                "end_date": {
+                    "type": "string",
+                    "description": "End date (YYYY-MM-DD). Defaults to start_date.",
+                },
+            },
+            "required": [],
+        },
+    },
 ]
 
 
@@ -236,6 +268,10 @@ async def execute_tool(
                 return await _exec_update_calendar_block(tool_input, session)
             case "schedule_week":
                 return await _exec_schedule_week(tool_input, session, settings)
+            case "sync_google_calendar":
+                return await _exec_sync_google_calendar(tool_input, session, settings)
+            case "get_google_events":
+                return await _exec_get_google_events(tool_input, session, settings)
             case _:
                 return {"error": f"Unknown tool: {name}"}
     except Exception as exc:
@@ -263,13 +299,14 @@ def _block_to_dict(block) -> dict:
     return {
         "id": block.id,
         "task_id": block.task_id,
-        "task_title": block.task.title if block.task else "Unknown",
+        "task_title": block.title or (block.task.title if block.task else "Unknown"),
         "scheduled_date": block.scheduled_date.isoformat(),
         "start_time": block.start_time.strftime("%H:%M"),
         "end_time": block.end_time.strftime("%H:%M"),
         "duration_minutes": block.duration_minutes,
         "is_locked": block.is_locked,
         "status": block.status.value,
+        "source": getattr(block, "source", "alfred"),
     }
 
 
@@ -504,4 +541,43 @@ async def _exec_schedule_week(
         "scheduled_count": result["tasks_scheduled"],
         "unschedulable_count": result["tasks_unschedulable"],
         "total_blocks": len(result["blocks"]),
+    }
+
+
+async def _exec_sync_google_calendar(
+    inp: dict, session: AsyncSession, settings: Settings
+) -> dict:
+    from app.services import google_calendar_service as gcal
+
+    days = inp.get("days_ahead", 14)
+    result = await gcal.sync(session, settings, days_ahead=days)
+    return result
+
+
+async def _exec_get_google_events(
+    inp: dict, session: AsyncSession, settings: Settings
+) -> dict:
+    from app.services import google_calendar_service as gcal
+
+    tz = ZoneInfo(settings.timezone)
+    if inp.get("start_date"):
+        start = date.fromisoformat(inp["start_date"])
+    else:
+        start = datetime.now(tz).date()
+
+    end = date.fromisoformat(inp["end_date"]) if inp.get("end_date") else start
+
+    events = await gcal.pull_events_from_google(start, end, session, settings)
+    return {
+        "events": [
+            {
+                "id": e.get("id"),
+                "summary": e.get("summary", "No title"),
+                "start": e.get("start", {}).get("dateTime", e.get("start", {}).get("date", "")),
+                "end": e.get("end", {}).get("dateTime", e.get("end", {}).get("date", "")),
+                "location": e.get("location"),
+            }
+            for e in events
+        ],
+        "count": len(events),
     }

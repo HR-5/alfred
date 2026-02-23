@@ -4,6 +4,7 @@ import WeekView from '@/components/calendar/WeekView'
 import DayView from '@/components/calendar/DayView'
 import ChatPanel from '@/components/chat/ChatPanel'
 import TaskDrawer from '@/components/tasks/TaskDrawer'
+import EventDetailPanel from '@/components/calendar/EventDetailPanel'
 import { useChatStore } from '@/store/chatStore'
 import type { CalendarBlock } from '@/types/calendar'
 import { formatTime } from '@/utils/date'
@@ -14,16 +15,30 @@ type MobileTab = 'calendar' | 'chat'
 export default function CanvasLayout() {
   const setDraftMessage = useChatStore((s) => s.setDraftMessage)
   const [mobileTab, setMobileTab] = useState<MobileTab>('chat')
+  const [selectedBlock, setSelectedBlock] = useState<CalendarBlock | null>(null)
 
-  const handleBlockClick = useCallback(
+  const handleBlockClick = useCallback((block: CalendarBlock) => {
+    setSelectedBlock(block)
+  }, [])
+
+  const handleChatAbout = useCallback(
     (block: CalendarBlock) => {
       const time = `${formatTime(block.start_time)}–${formatTime(block.end_time)}`
       setDraftMessage(`About "${block.task_title}" (${block.scheduled_date} ${time}): `)
-      // On mobile, switch to chat tab after clicking a block
+      setSelectedBlock(null)
       setMobileTab('chat')
     },
     [setDraftMessage],
   )
+
+  const handlePanelClose = useCallback(() => {
+    setSelectedBlock(null)
+  }, [])
+
+  const handleBlockDeleted = useCallback(() => {
+    setSelectedBlock(null)
+    // WeekView/DayView will refetch on next render cycle
+  }, [])
 
   return (
     <div className="h-screen flex flex-col bg-bg-primary">
@@ -58,22 +73,51 @@ export default function CanvasLayout() {
       {/* Desktop layout — side by side */}
       <div className="hidden md:flex flex-1 overflow-hidden">
         {/* Left panel — Calendar + Tasks drawer */}
-        <div className="w-[60%] flex flex-col border-r border-border overflow-hidden">
+        <div
+          className={cn(
+            'flex flex-col border-r border-border overflow-hidden transition-all',
+            selectedBlock ? 'w-[40%]' : 'w-[60%]',
+          )}
+        >
           <div className="flex-1 overflow-hidden">
             <WeekView onBlockClick={handleBlockClick} />
           </div>
           <TaskDrawer />
         </div>
 
+        {/* Center panel — Event detail (when selected) */}
+        {selectedBlock && (
+          <div className="w-[20%] min-w-[260px] flex flex-col overflow-hidden border-r border-border">
+            <EventDetailPanel
+              block={selectedBlock}
+              onClose={handlePanelClose}
+              onChatAbout={handleChatAbout}
+              onDeleted={handleBlockDeleted}
+            />
+          </div>
+        )}
+
         {/* Right panel — Chat */}
-        <div className="w-[40%] flex flex-col overflow-hidden">
+        <div
+          className={cn(
+            'flex flex-col overflow-hidden transition-all',
+            selectedBlock ? 'w-[40%]' : 'w-[40%]',
+          )}
+        >
           <ChatPanel />
         </div>
       </div>
 
       {/* Mobile layout — tabbed, uses DayView instead of WeekView */}
       <div className="md:hidden flex-1 overflow-hidden">
-        {mobileTab === 'calendar' ? (
+        {selectedBlock ? (
+          <EventDetailPanel
+            block={selectedBlock}
+            onClose={handlePanelClose}
+            onChatAbout={handleChatAbout}
+            onDeleted={handleBlockDeleted}
+          />
+        ) : mobileTab === 'calendar' ? (
           <div className="h-full flex flex-col overflow-hidden">
             <div className="flex-1 overflow-hidden">
               <DayView onBlockClick={handleBlockClick} />

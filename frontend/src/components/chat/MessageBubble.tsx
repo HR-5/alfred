@@ -16,9 +16,7 @@ export default function MessageBubble({ message, onQuickAction }: Props) {
   return (
     <div className={cn('flex gap-3 px-4 py-2', isUser ? 'justify-end' : 'justify-start')}>
       {!isUser && (
-        <div className="w-7 h-7 rounded-full bg-accent/20 text-accent flex items-center justify-center text-sm shrink-0 mt-1">
-          🦇
-        </div>
+        <img src="/logo.png" alt="Alfred" className="w-7 h-7 rounded-full shrink-0 mt-1" />
       )}
 
       <div

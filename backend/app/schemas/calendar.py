@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, datetime, time
 from typing import Optional
 
 from pydantic import BaseModel
@@ -6,15 +6,35 @@ from pydantic import BaseModel
 from app.models.calendar_block import BlockStatus
 
 
+class BlockNoteResponse(BaseModel):
+    id: str
+    content: str
+    source: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class TaggedTaskSummary(BaseModel):
+    id: str
+    title: str
+    status: str
+    priority: str
+
+    model_config = {"from_attributes": True}
+
+
 class CalendarBlockResponse(BaseModel):
     id: str
-    task_id: str
+    task_id: Optional[str] = None
     scheduled_date: date
     start_time: time
     end_time: time
     duration_minutes: int
     status: BlockStatus
     is_locked: bool
+    source: str = "alfred"
+    title: Optional[str] = None
     # Denormalized task fields for rendering
     task_title: str
     task_priority: str
@@ -22,6 +42,12 @@ class CalendarBlockResponse(BaseModel):
     task_status: str
 
     model_config = {"from_attributes": True}
+
+
+class BlockDetailResponse(CalendarBlockResponse):
+    """Extended response with notes and tagged tasks."""
+    notes: list[BlockNoteResponse] = []
+    tagged_tasks: list[TaggedTaskSummary] = []
 
 
 class CalendarBlockCreate(BaseModel):
@@ -38,6 +64,14 @@ class CalendarBlockUpdate(BaseModel):
     end_time: Optional[time] = None
     is_locked: Optional[bool] = None
     status: Optional[BlockStatus] = None
+
+
+class BlockNoteCreate(BaseModel):
+    content: str
+
+
+class BlockTagRequest(BaseModel):
+    task_id: str
 
 
 class WeekScheduleRequest(BaseModel):

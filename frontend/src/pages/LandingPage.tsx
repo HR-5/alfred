@@ -53,9 +53,7 @@ export default function LandingPage() {
       {/* Navigation */}
       <nav className="relative z-10 flex items-center justify-between px-8 py-5 max-w-6xl mx-auto">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-accent/15 flex items-center justify-center text-lg">
-            🦇
-          </div>
+          <img src="/logo.png" alt="Alfred" className="w-9 h-9 rounded-lg" />
           <span className="text-lg font-semibold tracking-tight">Alfred</span>
         </div>
         <div className="flex items-center gap-6">
@@ -236,7 +234,7 @@ export default function LandingPage() {
       <footer className="relative z-10 border-t border-border">
         <div className="max-w-6xl mx-auto px-8 py-6 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-text-muted">
-            <span>🦇</span>
+            <img src="/logo.png" alt="Alfred" className="w-5 h-5 rounded" />
             <span>Alfred v0.1.0</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-text-muted">

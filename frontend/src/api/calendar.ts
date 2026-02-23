@@ -1,4 +1,4 @@
-import type { CalendarBlock, WeekScheduleResponse, WeekScheduleRequest } from '@/types/calendar'
+import type { CalendarBlock, BlockNote, WeekScheduleResponse, WeekScheduleRequest } from '@/types/calendar'
 import client from './client'
 
 export async function getWeekBlocks(weekStart: string): Promise<WeekScheduleResponse> {
@@ -46,4 +46,22 @@ export async function deleteBlock(blockId: string): Promise<void> {
 export async function toggleBlockLock(blockId: string): Promise<CalendarBlock> {
   const { data } = await client.post<CalendarBlock>(`/calendar/blocks/${blockId}/lock`)
   return data
+}
+
+export async function getBlockDetail(blockId: string): Promise<CalendarBlock> {
+  const { data } = await client.get<CalendarBlock>(`/calendar/blocks/${blockId}`)
+  return data
+}
+
+export async function addBlockNote(blockId: string, content: string): Promise<BlockNote> {
+  const { data } = await client.post<BlockNote>(`/calendar/blocks/${blockId}/notes`, { content })
+  return data
+}
+
+export async function tagTask(blockId: string, taskId: string): Promise<void> {
+  await client.post(`/calendar/blocks/${blockId}/tag`, { task_id: taskId })
+}
+
+export async function untagTask(blockId: string, taskId: string): Promise<void> {
+  await client.delete(`/calendar/blocks/${blockId}/tag/${taskId}`)
 }

@@ -17,7 +17,7 @@ export default function MessageList({ onQuickAction }: Props) {
   if (messages.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-text-muted px-8">
-        <div className="text-5xl mb-4">🦇</div>
+        <img src="/logo.png" alt="Alfred" className="w-14 h-14 rounded-xl mb-4" />
         <h2 className="text-lg font-medium text-text-secondary mb-2">
           Good evening, Master Wayne.
         </h2>

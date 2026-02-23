@@ -31,7 +31,27 @@ async def lifespan(app: FastAPI):
     app.state.llm = create_llm_adapter(settings)
     logger.info("LLM adapter: %s / %s", settings.llm_provider, settings.llm_model)
 
+    # Telegram bot
+    if settings.telegram_bot_token:
+        from app.services import telegram_service
+
+        initialized = await telegram_service.init_bot(settings)
+        if initialized and settings.telegram_webhook_url:
+            await telegram_service.setup_webhook(settings)
+            logger.info("Telegram bot running in webhook mode")
+        elif initialized:
+            await telegram_service.start_polling(
+                app.state.session_factory, app.state.llm
+            )
+            logger.info("Telegram bot running in polling mode")
+
     yield
+
+    # Shutdown
+    if settings.telegram_bot_token:
+        from app.services import telegram_service
+
+        await telegram_service.shutdown_bot()
 
     await engine.dispose()
 

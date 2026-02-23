@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getWeekStart, getWeekDays, toISODate } from '@/utils/calendar'
 import { getWeekBlocks, triggerSchedule, deleteBlock, toggleBlockLock } from '@/api/calendar'
+import { syncGoogle, getGoogleStatus } from '@/api/integrations'
 import type { CalendarBlock } from '@/types/calendar'
 import HourLabels from './HourLabels'
 import DayColumn from './DayColumn'
@@ -24,6 +25,8 @@ export default function WeekView({ onBlockClick }: Props = {}) {
   const [blocks, setBlocks] = useState<CalendarBlock[]>([])
   const [loading, setLoading] = useState(true)
   const [scheduling, setScheduling] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [gcalConnected, setGcalConnected] = useState(false)
   const [unschedulableCount, setUnschedulableCount] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const didScroll = useRef(false)
@@ -47,6 +50,38 @@ export default function WeekView({ onBlockClick }: Props = {}) {
   useEffect(() => {
     fetchBlocks()
   }, [fetchBlocks])
+
+  // Check Google Calendar connection status
+  useEffect(() => {
+    getGoogleStatus()
+      .then((s) => setGcalConnected(s.connected))
+      .catch(() => {})
+  }, [])
+
+  // Periodic Google Calendar sync every 15 minutes
+  useEffect(() => {
+    if (!gcalConnected) return
+    const interval = setInterval(async () => {
+      try {
+        await syncGoogle()
+        fetchBlocks()
+      } catch {
+        // silent
+      }
+    }, 15 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [gcalConnected, fetchBlocks])
+
+  const handleSync = async () => {
+    setSyncing(true)
+    try {
+      await syncGoogle()
+      await fetchBlocks()
+    } catch {
+      // ignore
+    }
+    setSyncing(false)
+  }
 
   // Auto-scroll to current hour on first load
   useEffect(() => {
@@ -147,7 +182,18 @@ export default function WeekView({ onBlockClick }: Props = {}) {
         </div>
 
         <div className="flex items-center gap-2">
-          {scheduling && <Spinner className="w-4 h-4" />}
+          {(scheduling || syncing) && <Spinner className="w-4 h-4" />}
+          {gcalConnected && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSync}
+              disabled={syncing}
+              title="Sync with Google Calendar"
+            >
+              {syncing ? 'Syncing...' : 'Sync'}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"

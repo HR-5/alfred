@@ -5,7 +5,8 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.calendar_block import BlockStatus, CalendarBlock
+from app.models.calendar_block import BlockNote, BlockStatus, CalendarBlock, block_tagged_tasks
+from app.models.task import Task
 from app.schemas.calendar import CalendarBlockCreate, CalendarBlockUpdate
 
 
@@ -158,3 +159,67 @@ async def _has_overlap(
         select(CalendarBlock).where(and_(*conditions)).limit(1)
     )
     return result.scalar_one_or_none() is not None
+
+
+# ─── Block Detail, Notes & Tags ──────────────────────────────────────────
+
+
+async def get_block_detail(block_id: str, session: AsyncSession) -> Optional[CalendarBlock]:
+    """Get block with notes and tagged tasks eagerly loaded."""
+    result = await session.execute(
+        select(CalendarBlock)
+        .where(CalendarBlock.id == block_id)
+        .options(
+            selectinload(CalendarBlock.task),
+            selectinload(CalendarBlock.notes),
+            selectinload(CalendarBlock.tagged_tasks),
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def add_note(
+    block_id: str, content: str, session: AsyncSession, source: str = "user"
+) -> Optional[BlockNote]:
+    block = await get_block(block_id, session)
+    if not block:
+        return None
+    note = BlockNote(block_id=block_id, content=content, source=source)
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+    return note
+
+
+async def tag_task(block_id: str, task_id: str, session: AsyncSession) -> bool:
+    block = await get_block(block_id, session)
+    if not block:
+        return False
+    task = await session.get(Task, task_id)
+    if not task:
+        return False
+    # Check if already tagged
+    result = await session.execute(
+        select(block_tagged_tasks).where(
+            block_tagged_tasks.c.block_id == block_id,
+            block_tagged_tasks.c.task_id == task_id,
+        )
+    )
+    if result.first():
+        return True  # Already tagged
+    await session.execute(
+        block_tagged_tasks.insert().values(block_id=block_id, task_id=task_id)
+    )
+    await session.commit()
+    return True
+
+
+async def untag_task(block_id: str, task_id: str, session: AsyncSession) -> bool:
+    result = await session.execute(
+        block_tagged_tasks.delete().where(
+            block_tagged_tasks.c.block_id == block_id,
+            block_tagged_tasks.c.task_id == task_id,
+        )
+    )
+    await session.commit()
+    return result.rowcount > 0

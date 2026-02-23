@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react'
 import client from '@/api/client'
 import Spinner from '@/components/ui/Spinner'
 import Button from '@/components/ui/Button'
+import {
+  getGoogleStatus,
+  connectGoogle,
+  disconnectGoogle,
+  syncGoogle,
+  type GoogleCalendarStatus,
+} from '@/api/integrations'
 
 interface Props {
   onClose: () => void
@@ -11,14 +18,19 @@ export default function SettingsModal({ onClose }: Props) {
   const [settings, setSettings] = useState<Record<string, string> | null>(null)
   const [health, setHealth] = useState<{ healthy: boolean; provider: string; model: string } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [gcalStatus, setGcalStatus] = useState<GoogleCalendarStatus | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
       client.get('/settings').then((r) => r.data),
       client.get('/settings/llm/health').then((r) => r.data).catch(() => null),
-    ]).then(([s, h]) => {
+      getGoogleStatus().catch(() => ({ connected: false })),
+    ]).then(([s, h, g]) => {
       setSettings(s)
       setHealth(h)
+      setGcalStatus(g)
       setLoading(false)
     })
   }, [])
@@ -31,6 +43,35 @@ export default function SettingsModal({ onClose }: Props) {
     } catch {
       setHealth({ healthy: false, provider: 'unknown', model: 'unknown' })
     }
+  }
+
+  const handleGoogleConnect = async () => {
+    try {
+      const { auth_url } = await connectGoogle()
+      window.open(auth_url, '_blank')
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleGoogleDisconnect = async () => {
+    await disconnectGoogle()
+    setGcalStatus({ connected: false })
+    setSyncResult(null)
+  }
+
+  const handleGoogleSync = async () => {
+    setSyncing(true)
+    setSyncResult(null)
+    try {
+      const result = await syncGoogle()
+      setSyncResult(`Pushed ${result.pushed}, pulled ${result.pulled} events`)
+      const status = await getGoogleStatus()
+      setGcalStatus(status)
+    } catch {
+      setSyncResult('Sync failed')
+    }
+    setSyncing(false)
   }
 
   return (
@@ -90,6 +131,61 @@ export default function SettingsModal({ onClose }: Props) {
                 </div>
                 <p className="text-xs text-text-muted mt-2">
                   Configure via environment variables (LLM_PROVIDER, LLM_MODEL, etc.)
+                </p>
+              </section>
+
+              <section className="mb-6">
+                <h3 className="text-xs font-medium text-text-secondary mb-2 uppercase tracking-wider">Google Calendar</h3>
+                <div className="space-y-2 bg-bg-secondary rounded-lg border border-border p-4">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-text-muted">Status</span>
+                    <span className={gcalStatus?.connected ? 'text-success' : 'text-text-muted'}>
+                      {gcalStatus?.connected ? 'Connected' : 'Not connected'}
+                    </span>
+                  </div>
+                  {gcalStatus?.connected && (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-text-muted">Calendar</span>
+                        <span className="text-text-primary">{gcalStatus.calendar_id}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-text-muted">Last sync</span>
+                        <span className="text-text-primary">
+                          {gcalStatus.last_sync_at
+                            ? new Date(gcalStatus.last_sync_at).toLocaleString()
+                            : 'Never'}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex gap-2 pt-1">
+                    {gcalStatus?.connected ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleGoogleSync}
+                          disabled={syncing}
+                        >
+                          {syncing ? 'Syncing...' : 'Sync Now'}
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={handleGoogleDisconnect}>
+                          Disconnect
+                        </Button>
+                      </>
+                    ) : (
+                      <Button variant="ghost" size="sm" onClick={handleGoogleConnect}>
+                        Connect Google Calendar
+                      </Button>
+                    )}
+                  </div>
+                  {syncResult && (
+                    <p className="text-xs text-text-muted mt-1">{syncResult}</p>
+                  )}
+                </div>
+                <p className="text-xs text-text-muted mt-2">
+                  Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env to enable.
                 </p>
               </section>
 

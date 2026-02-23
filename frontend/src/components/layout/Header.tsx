@@ -8,7 +8,7 @@ export default function Header() {
     <>
       <header className="h-12 shrink-0 flex items-center justify-between px-4 border-b border-border bg-bg-secondary">
         <div className="flex items-center gap-2">
-          <span className="text-base">🦇</span>
+          <img src="/logo.png" alt="Alfred" className="w-7 h-7 rounded" />
           <span className="text-sm font-semibold text-text-primary tracking-wide">Alfred</span>
         </div>
 

@@ -6,9 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_session, get_settings
 from app.config import Settings
 from app.schemas.calendar import (
+    BlockDetailResponse,
+    BlockNoteCreate,
+    BlockNoteResponse,
+    BlockTagRequest,
     CalendarBlockCreate,
     CalendarBlockResponse,
     CalendarBlockUpdate,
+    TaggedTaskSummary,
     WeekScheduleRequest,
     WeekScheduleResponse,
 )
@@ -19,6 +24,7 @@ router = APIRouter(prefix="/calendar", tags=["calendar"])
 
 
 def _block_to_response(block) -> CalendarBlockResponse:
+    task = block.task
     return CalendarBlockResponse(
         id=block.id,
         task_id=block.task_id,
@@ -28,10 +34,39 @@ def _block_to_response(block) -> CalendarBlockResponse:
         duration_minutes=block.duration_minutes,
         status=block.status,
         is_locked=block.is_locked,
-        task_title=block.task.title,
-        task_priority=block.task.priority.value,
-        task_energy_level=block.task.energy_level.value if block.task.energy_level else None,
-        task_status=block.task.status.value,
+        source=block.source,
+        title=block.title,
+        task_title=block.title or (task.title if task else "Untitled"),
+        task_priority=task.priority.value if task else "none",
+        task_energy_level=task.energy_level.value if task and task.energy_level else None,
+        task_status=task.status.value if task else "todo",
+    )
+
+
+def _block_to_detail(block) -> BlockDetailResponse:
+    base = _block_to_response(block)
+    notes = [
+        BlockNoteResponse(
+            id=n.id,
+            content=n.content,
+            source=n.source,
+            created_at=n.created_at,
+        )
+        for n in getattr(block, "notes", [])
+    ]
+    tagged = [
+        TaggedTaskSummary(
+            id=t.id,
+            title=t.title,
+            status=t.status.value,
+            priority=t.priority.value,
+        )
+        for t in getattr(block, "tagged_tasks", [])
+    ]
+    return BlockDetailResponse(
+        **base.model_dump(),
+        notes=notes,
+        tagged_tasks=tagged,
     )
 
 
@@ -119,3 +154,51 @@ async def toggle_lock(
     if not block:
         raise HTTPException(status_code=404, detail="Block not found")
     return _block_to_response(block)
+
+
+@router.get("/blocks/{block_id}", response_model=BlockDetailResponse)
+async def get_block_detail(
+    block_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> BlockDetailResponse:
+    block = await calendar_service.get_block_detail(block_id, session)
+    if not block:
+        raise HTTPException(status_code=404, detail="Block not found")
+    return _block_to_detail(block)
+
+
+@router.post("/blocks/{block_id}/notes", response_model=BlockNoteResponse, status_code=201)
+async def add_block_note(
+    block_id: str,
+    body: BlockNoteCreate,
+    session: AsyncSession = Depends(get_session),
+) -> BlockNoteResponse:
+    note = await calendar_service.add_note(block_id, body.content, session)
+    if not note:
+        raise HTTPException(status_code=404, detail="Block not found")
+    return BlockNoteResponse(
+        id=note.id, content=note.content, source=note.source, created_at=note.created_at,
+    )
+
+
+@router.post("/blocks/{block_id}/tag", status_code=201)
+async def tag_task(
+    block_id: str,
+    body: BlockTagRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    ok = await calendar_service.tag_task(block_id, body.task_id, session)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Block or task not found")
+    return {"tagged": True}
+
+
+@router.delete("/blocks/{block_id}/tag/{task_id}", status_code=204)
+async def untag_task(
+    block_id: str,
+    task_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    removed = await calendar_service.untag_task(block_id, task_id, session)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Tag not found")

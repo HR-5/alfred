@@ -15,6 +15,17 @@ class Settings(BaseSettings):
     debug: bool = False
     timezone: str = "Asia/Kolkata"
 
+    # Google Calendar integration
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = "http://localhost:8000/api/v1/integrations/google/callback"
+    google_calendar_id: str = "primary"
+
+    # Telegram bot integration
+    telegram_bot_token: str = ""
+    telegram_webhook_url: str = ""
+    telegram_chat_id: str = ""  # Auto-captured or set manually
+
     default_wake_time: str = "07:00"
     default_sleep_time: str = "23:00"
     default_work_start: str = "09:00"
