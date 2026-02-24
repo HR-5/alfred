@@ -139,7 +139,15 @@ async def update_block(
 async def delete_block(
     block_id: str,
     session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
 ) -> None:
+    # If the block has an external Google event, delete it from Google first
+    block = await calendar_service.get_block(block_id, session)
+    if not block:
+        raise HTTPException(status_code=404, detail="Block not found")
+    if block.external_id:
+        from app.services import google_calendar_service
+        await google_calendar_service.delete_google_event(block.external_id, session, settings)
     deleted = await calendar_service.delete_block(block_id, session)
     if not deleted:
         raise HTTPException(status_code=404, detail="Block not found")

@@ -60,7 +60,7 @@ async def list_tasks(
     if conditions:
         query = query.where(and_(*conditions))
 
-    query = query.order_by(Task.due_date.asc().nulls_last(), Task.created_at.desc())
+    query = query.order_by(Task.due_date.asc().nulls_last(), Task.due_time.asc().nulls_last(), Task.created_at.desc())
 
     count_result = await session.execute(
         select(Task).where(and_(*conditions)) if conditions else select(Task)

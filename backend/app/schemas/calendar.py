@@ -64,6 +64,7 @@ class CalendarBlockUpdate(BaseModel):
     end_time: Optional[time] = None
     is_locked: Optional[bool] = None
     status: Optional[BlockStatus] = None
+    title: Optional[str] = None
 
 
 class BlockNoteCreate(BaseModel):

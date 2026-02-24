@@ -40,7 +40,7 @@ export default function TimeBlock({
       <div className={cn('px-1.5', isCompact ? 'py-px flex items-center gap-1.5' : 'py-1')}>
         <p
           className={cn(
-            'font-medium truncate leading-tight',
+            'font-semibold truncate leading-tight',
             colors.text,
             isCompact ? 'text-[10px]' : 'text-[11px]',
           )}
@@ -48,7 +48,7 @@ export default function TimeBlock({
           {block.task_title}
         </p>
         {!isCompact && (
-          <p className="text-[10px] text-text-muted leading-tight mt-px">
+          <p className="text-[10px] text-text-secondary leading-tight mt-px">
             {formatTime(block.start_time)} – {formatTime(block.end_time)}
           </p>
         )}

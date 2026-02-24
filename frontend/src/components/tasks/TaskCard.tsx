@@ -37,7 +37,7 @@ export default function TaskCard({ task, onComplete }: Props) {
       </button>
 
       <div className="flex-1 min-w-0">
-        <p className={cn('text-sm font-medium', isDone && 'line-through text-text-muted')}>
+        <p className={cn('text-sm font-semibold', isDone && 'line-through text-text-muted')}>
           {task.title}
         </p>
 
@@ -51,13 +51,13 @@ export default function TaskCard({ task, onComplete }: Props) {
             {task.status.replace('_', ' ')}
           </Badge>
           {task.due_date && (
-            <span className="text-xs text-text-muted">
+            <span className="text-xs text-text-secondary">
               {formatDate(task.due_date)}
               {task.due_time && ` at ${formatTime(task.due_time)}`}
             </span>
           )}
           {task.estimated_minutes && (
-            <span className="text-xs text-text-muted">
+            <span className="text-xs text-text-secondary">
               ~{task.estimated_minutes}m
             </span>
           )}

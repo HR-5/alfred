@@ -33,6 +33,7 @@ export async function updateBlock(
     end_time: string
     is_locked: boolean
     status: string
+    title: string
   }>,
 ): Promise<CalendarBlock> {
   const { data } = await client.put<CalendarBlock>(`/calendar/blocks/${blockId}`, body)

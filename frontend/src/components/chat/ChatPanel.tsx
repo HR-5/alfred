@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { useChatStore } from '@/store/chatStore'
 import { sendMessageStream } from '@/api/chat'
 import { completeTask, deleteTask } from '@/api/tasks'
+import { emit, REFRESH_CALENDAR, REFRESH_TASKS } from '@/utils/events'
 import MessageList from './MessageList'
 import ChatInput from './ChatInput'
 import type { Message } from '@/types/chat'
@@ -55,6 +56,9 @@ export default function ChatPanel() {
                 content: event.data.reply as string,
                 loading: false,
               })
+              // Refresh calendar + tasks since chat may have modified them
+              emit(REFRESH_CALENDAR)
+              emit(REFRESH_TASKS)
               break
             case 'error':
               updateLastAssistant({
@@ -99,6 +103,8 @@ export default function ChatPanel() {
             timestamp: new Date().toISOString(),
           })
         }
+        emit(REFRESH_CALENDAR)
+        emit(REFRESH_TASKS)
       } catch {
         addMessage({
           id: makeId(),
@@ -114,7 +120,7 @@ export default function ChatPanel() {
   return (
     <div className="flex flex-col h-full">
       <div className="border-b border-border px-4 py-3">
-        <h2 className="text-sm font-medium text-text-primary">Alfred Pennyworth</h2>
+        <h2 className="text-sm font-semibold text-text-primary">Alfred Pennyworth</h2>
         <p className="text-xs text-text-muted">At your service, Master Wayne.</p>
       </div>
       <MessageList onQuickAction={handleQuickAction} />

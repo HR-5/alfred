@@ -102,6 +102,8 @@ async def update_block(
         block.is_locked = data.is_locked
     if data.status is not None:
         block.status = data.status
+    if data.title is not None:
+        block.title = data.title
 
     # Recalculate duration
     from datetime import datetime
@@ -110,7 +112,7 @@ async def update_block(
     block.duration_minutes = int((end_dt - start_dt).total_seconds()) // 60
 
     # Track rescheduling on the task
-    if data.scheduled_date or data.start_time:
+    if (data.scheduled_date or data.start_time) and block.task:
         block.task.times_rescheduled += 1
 
     await session.commit()

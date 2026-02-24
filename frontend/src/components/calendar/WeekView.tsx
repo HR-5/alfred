@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button'
 import Spinner from '@/components/ui/Spinner'
 import { cn } from '@/utils/cn'
 import { isSameDay, shortDayName } from '@/utils/calendar'
+import { on, REFRESH_CALENDAR } from '@/utils/events'
 
 /** Pixels per hour row — consistent across labels + day columns */
 export const HOUR_HEIGHT = 48
@@ -49,6 +50,11 @@ export default function WeekView({ onBlockClick }: Props = {}) {
 
   useEffect(() => {
     fetchBlocks()
+  }, [fetchBlocks])
+
+  // Listen for refresh events from chat
+  useEffect(() => {
+    return on(REFRESH_CALENDAR, () => fetchBlocks())
   }, [fetchBlocks])
 
   // Check Google Calendar connection status
@@ -158,7 +164,7 @@ export default function WeekView({ onBlockClick }: Props = {}) {
       {/* Top toolbar */}
       <div className="border-b border-border px-4 py-2.5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <h2 className="text-sm font-medium text-text-primary">Calendar</h2>
+          <h2 className="text-sm font-semibold text-text-primary">Calendar</h2>
           <div className="flex items-center gap-1">
             <button
               onClick={() => navigateWeek(-1)}
@@ -173,7 +179,7 @@ export default function WeekView({ onBlockClick }: Props = {}) {
               ›
             </button>
           </div>
-          <span className="text-sm text-text-primary font-medium">
+          <span className="text-sm text-text-primary font-semibold">
             {formatHeaderDate(weekDays[0])} — {formatHeaderDate(weekDays[6])}
           </span>
           <Button variant="ghost" size="sm" onClick={goToToday}>
@@ -183,6 +189,15 @@ export default function WeekView({ onBlockClick }: Props = {}) {
 
         <div className="flex items-center gap-2">
           {(scheduling || syncing) && <Spinner className="w-4 h-4" />}
+          <button
+            onClick={() => fetchBlocks()}
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-bg-hover text-text-secondary hover:text-text-primary transition-colors"
+            title="Refresh calendar"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H4.598a.75.75 0 00-.75.75v3.634a.75.75 0 001.5 0v-2.033l.312.311a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm-10.624-2.85a5.5 5.5 0 019.201-2.465l.312.311H11.77a.75.75 0 000 1.5h3.634a.75.75 0 00.75-.75V3.536a.75.75 0 00-1.5 0v2.033l-.312-.311A7 7 0 002.63 8.396a.75.75 0 001.449.39z" clipRule="evenodd" />
+            </svg>
+          </button>
           {gcalConnected && (
             <Button
               variant="ghost"

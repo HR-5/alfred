@@ -7,6 +7,7 @@ import DayColumn from './DayColumn'
 import Button from '@/components/ui/Button'
 import Spinner from '@/components/ui/Spinner'
 import { cn } from '@/utils/cn'
+import { on, REFRESH_CALENDAR } from '@/utils/events'
 
 const HOUR_HEIGHT = 48
 const WORK_START = 0
@@ -49,6 +50,11 @@ export default function DayView({ onBlockClick }: Props) {
 
   useEffect(() => {
     fetchBlocks()
+  }, [fetchBlocks])
+
+  // Listen for refresh events from chat
+  useEffect(() => {
+    return on(REFRESH_CALENDAR, () => fetchBlocks())
   }, [fetchBlocks])
 
   // Auto-scroll to current hour on first load
@@ -115,11 +121,22 @@ export default function DayView({ onBlockClick }: Props) {
             {formatDate(currentDate)}
           </span>
         </div>
-        {!isToday && (
-          <Button variant="ghost" size="sm" onClick={goToToday}>
-            Today
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => fetchBlocks()}
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-bg-hover text-text-secondary hover:text-text-primary transition-colors"
+            title="Refresh"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H4.598a.75.75 0 00-.75.75v3.634a.75.75 0 001.5 0v-2.033l.312.311a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm-10.624-2.85a5.5 5.5 0 019.201-2.465l.312.311H11.77a.75.75 0 000 1.5h3.634a.75.75 0 00.75-.75V3.536a.75.75 0 00-1.5 0v2.033l-.312-.311A7 7 0 002.63 8.396a.75.75 0 001.449.39z" clipRule="evenodd" />
+            </svg>
+          </button>
+          {!isToday && (
+            <Button variant="ghost" size="sm" onClick={goToToday}>
+              Today
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Calendar grid */}

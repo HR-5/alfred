@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { cn } from '@/utils/cn'
 import { formatDate, formatTime, formatTimestamp } from '@/utils/date'
 import { priorityBlockColors } from '@/utils/calendar'
-import { getBlockDetail, addBlockNote, tagTask, untagTask, deleteBlock } from '@/api/calendar'
+import { getBlockDetail, addBlockNote, tagTask, untagTask, deleteBlock, updateBlock } from '@/api/calendar'
 import { getTasks } from '@/api/tasks'
 import type { CalendarBlock } from '@/types/calendar'
 import type { Task } from '@/types/task'
@@ -22,6 +22,8 @@ export default function EventDetailPanel({ block, onClose, onChatAbout, onDelete
   const [tagQuery, setTagQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Task[]>([])
   const [searching, setSearching] = useState(false)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState('')
   const notesEndRef = useRef<HTMLDivElement>(null)
 
   const colors = priorityBlockColors(detail.task_priority)
@@ -105,6 +107,26 @@ export default function EventDetailPanel({ block, onClose, onChatAbout, onDelete
     }
   }
 
+  const handleTitleSave = async () => {
+    const trimmed = titleDraft.trim()
+    if (!trimmed || trimmed === detail.task_title) {
+      setEditingTitle(false)
+      return
+    }
+    try {
+      await updateBlock(block.id, { title: trimmed })
+      setDetail((prev) => ({ ...prev, task_title: trimmed, title: trimmed }))
+    } catch {
+      // ignore
+    }
+    setEditingTitle(false)
+  }
+
+  const startTitleEdit = () => {
+    setTitleDraft(detail.task_title)
+    setEditingTitle(true)
+  }
+
   const priorityBadge = (priority: string) => {
     const cls: Record<string, string> = {
       critical: 'bg-critical/30 text-red-300',
@@ -132,9 +154,28 @@ export default function EventDetailPanel({ block, onClose, onChatAbout, onDelete
       <div className={cn('px-4 py-3 border-b border-border', colors.bg)}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <h3 className={cn('text-sm font-semibold truncate', colors.text)}>
-              {detail.task_title}
-            </h3>
+            {editingTitle ? (
+              <input
+                type="text"
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={handleTitleSave}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleTitleSave()
+                  if (e.key === 'Escape') setEditingTitle(false)
+                }}
+                className="w-full text-sm font-semibold bg-bg-primary/50 border border-accent/50 rounded px-1.5 py-0.5 text-text-primary focus:outline-none focus:border-accent"
+                autoFocus
+              />
+            ) : (
+              <h3
+                className={cn('text-sm font-semibold truncate cursor-pointer hover:opacity-80', colors.text)}
+                onClick={startTitleEdit}
+                title="Click to edit title"
+              >
+                {detail.task_title}
+              </h3>
+            )}
             <p className="text-xs text-text-muted mt-0.5">
               {formatDate(detail.scheduled_date)} &middot; {formatTime(detail.start_time)} &ndash; {formatTime(detail.end_time)}
             </p>
