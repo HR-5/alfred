@@ -119,20 +119,19 @@ def _send_push_sync(
         )
         return "ok"
     except Exception as exc:
-        msg = str(exc)
-        # Log the full details including response body for debugging
-        response_body = ""
-        if hasattr(exc, "response") and exc.response is not None:
-            try:
-                status = exc.response.status_code
-                response_body = exc.response.text[:200]
-                msg = f"{status} — {response_body}"
-            except Exception:
-                pass
-        if "410" in msg or "Gone" in msg or "unsubscribed or expired" in msg or "410" in str(exc):
+        # Check for expired/unsubscribed (410 Gone) via response status code
+        response = getattr(exc, "response", None)
+        if response is not None:
+            status = getattr(response, "status_code", None) or getattr(response, "status", None)
+            if status == 410:
+                logger.info("Push subscription gone (410) — will remove from DB")
+                return "gone"
+        # Fallback: check string representation
+        exc_str = str(exc)
+        if "410" in exc_str or "Gone" in exc_str or "unsubscribed" in exc_str:
             logger.info("Push subscription gone (410) — will remove from DB")
             return "gone"
-        logger.warning("Push send failed: %s | response: %s", exc, response_body or "(no response)")
+        logger.warning("Push send failed: %s", exc)
         return "error"
 
 
