@@ -80,11 +80,11 @@ export default function LandingPage() {
           Self-hosted &middot; Private &middot; Intelligent
         </div>
 
-        <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1] mb-6">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
           <span className="text-text-primary">The silent guardian</span>
           <br />
           <span className="text-text-primary">of your </span>
-          <span className="text-accent">to-do list.</span>
+          <span className="text-accent">relentless ambitions.</span>
         </h1>
 
         <p className="text-lg sm:text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed mb-10">

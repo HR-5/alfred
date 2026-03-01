@@ -15,14 +15,16 @@ const WORK_END = 24
 
 interface Props {
   onBlockClick?: (block: CalendarBlock) => void
+  onBlockDoubleClick?: (block: CalendarBlock) => void
 }
 
-export default function DayView({ onBlockClick }: Props) {
+export default function DayView({ onBlockClick, onBlockDoubleClick }: Props) {
   const [currentDate, setCurrentDate] = useState<Date>(new Date())
   const [blocks, setBlocks] = useState<CalendarBlock[]>([])
   const [loading, setLoading] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
   const didScroll = useRef(false)
+  const savedScrollTop = useRef<number>(0)
 
   const dateStr = toISODate(currentDate)
   const today = new Date()
@@ -30,6 +32,10 @@ export default function DayView({ onBlockClick }: Props) {
 
   // We fetch the week and filter to the current day (reuses existing API)
   const fetchBlocks = useCallback(async () => {
+    // Save scroll position before reload
+    if (scrollRef.current && didScroll.current) {
+      savedScrollTop.current = scrollRef.current.scrollTop
+    }
     setLoading(true)
     try {
       // Get week start for this date
@@ -57,13 +63,17 @@ export default function DayView({ onBlockClick }: Props) {
     return on(REFRESH_CALENDAR, () => fetchBlocks())
   }, [fetchBlocks])
 
-  // Auto-scroll to current hour on first load
+  // Scroll management: initial scroll to 5am, then restore position on refreshes
   useEffect(() => {
-    if (!loading && scrollRef.current && !didScroll.current) {
-      didScroll.current = true
-      const now = new Date()
-      const scrollToHour = Math.max(0, now.getHours() - 1)
-      scrollRef.current.scrollTop = scrollToHour * HOUR_HEIGHT
+    if (!loading && scrollRef.current) {
+      if (!didScroll.current) {
+        didScroll.current = true
+        const now = new Date()
+        const scrollToHour = Math.max(5, now.getHours() - 1)
+        scrollRef.current.scrollTop = scrollToHour * HOUR_HEIGHT
+      } else {
+        scrollRef.current.scrollTop = savedScrollTop.current
+      }
     }
   }, [loading])
 
@@ -166,6 +176,7 @@ export default function DayView({ onBlockClick }: Props) {
               onLockToggle={handleLockToggle}
               onDelete={handleDelete}
               onBlockClick={onBlockClick}
+              onBlockDoubleClick={onBlockDoubleClick}
             />
           </div>
         </div>

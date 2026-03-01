@@ -12,6 +12,7 @@ interface Props {
   onLockToggle: (blockId: string) => void
   onDelete: (blockId: string) => void
   onBlockClick?: (block: CalendarBlock) => void
+  onBlockDoubleClick?: (block: CalendarBlock) => void
 }
 
 export default function DayColumn({
@@ -23,6 +24,7 @@ export default function DayColumn({
   onLockToggle,
   onDelete,
   onBlockClick,
+  onBlockDoubleClick,
 }: Props) {
   const totalHours = workEndHour - workStartHour
   const totalHeight = totalHours * hourHeight
@@ -79,6 +81,7 @@ export default function DayColumn({
             onLockToggle={onLockToggle}
             onDelete={onDelete}
             onClick={onBlockClick}
+            onDoubleClick={onBlockDoubleClick}
           />
         )
       })}

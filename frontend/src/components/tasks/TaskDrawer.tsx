@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Task } from '@/types/task'
-import { getTasks, completeTask } from '@/api/tasks'
+import { getTasks, completeTask, deleteTask } from '@/api/tasks'
 import TaskCard from './TaskCard'
 import Spinner from '@/components/ui/Spinner'
 import Button from '@/components/ui/Button'
@@ -11,7 +11,7 @@ type Filter = 'pending' | 'all' | 'todo' | 'done'
 
 const COLLAPSED_HEIGHT = 40
 const MIN_HEIGHT = 120
-const DEFAULT_HEIGHT = 260
+const DEFAULT_HEIGHT = 360
 
 function groupTasksByDate(tasks: Task[]): Map<string, Task[]> {
   const groups = new Map<string, Task[]>()
@@ -90,6 +90,15 @@ export default function TaskDrawer() {
   const handleComplete = async (taskId: string) => {
     try {
       await completeTask(taskId)
+      fetchTasks(true)
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleDelete = async (taskId: string) => {
+    try {
+      await deleteTask(taskId)
       fetchTasks(true)
     } catch {
       // ignore
@@ -262,7 +271,7 @@ export default function TaskDrawer() {
                   {!isCollapsed && (
                     <div className="space-y-1.5 ml-1">
                       {dateTasks.map((task) => (
-                        <TaskCard key={task.id} task={task} onComplete={handleComplete} />
+                        <TaskCard key={task.id} task={task} onComplete={handleComplete} onDelete={handleDelete} />
                       ))}
                     </div>
                   )}

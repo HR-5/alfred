@@ -1,11 +1,26 @@
 import { create } from 'zustand'
 import type { Message, ThinkingStep } from '@/types/chat'
 
+const SESSION_KEY = 'alfred_session_id'
+
+function getOrCreateSessionId(): string {
+  const stored = localStorage.getItem(SESSION_KEY)
+  if (stored) return stored
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2)
+  localStorage.setItem(SESSION_KEY, id)
+  return id
+}
+
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2)
+}
+
 interface ChatState {
   messages: Message[]
   loading: boolean
   sessionId: string
   draftMessage: string
+  historyLoaded: boolean
   addMessage: (message: Message) => void
   updateLastAssistant: (update: Partial<Message>) => void
   addThinkingStep: (step: ThinkingStep) => void
@@ -13,17 +28,16 @@ interface ChatState {
   setLoading: (loading: boolean) => void
   setDraftMessage: (text: string) => void
   clearMessages: () => void
-}
-
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2)
+  seedMessages: (messages: Message[]) => void
+  setHistoryLoaded: (loaded: boolean) => void
 }
 
 export const useChatStore = create<ChatState>((set) => ({
   messages: [],
   loading: false,
-  sessionId: generateId(),
+  sessionId: getOrCreateSessionId(),
   draftMessage: '',
+  historyLoaded: false,
 
   addMessage: (message) =>
     set((state) => ({ messages: [...state.messages, message] })),
@@ -72,5 +86,13 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setDraftMessage: (text) => set({ draftMessage: text }),
 
-  clearMessages: () => set({ messages: [], sessionId: generateId() }),
+  clearMessages: () => {
+    const id = generateId()
+    localStorage.setItem(SESSION_KEY, id)
+    set({ messages: [], sessionId: id, historyLoaded: false })
+  },
+
+  seedMessages: (messages) => set({ messages }),
+
+  setHistoryLoaded: (loaded) => set({ historyLoaded: loaded }),
 }))

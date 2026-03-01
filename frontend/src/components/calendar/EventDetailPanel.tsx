@@ -3,6 +3,7 @@ import { cn } from '@/utils/cn'
 import { formatDate, formatTime, formatTimestamp } from '@/utils/date'
 import { priorityBlockColors } from '@/utils/calendar'
 import { getBlockDetail, addBlockNote, tagTask, untagTask, deleteBlock, updateBlock } from '@/api/calendar'
+import { emit, on, REFRESH_CALENDAR } from '@/utils/events'
 import { getTasks } from '@/api/tasks'
 import type { CalendarBlock } from '@/types/calendar'
 import type { Task } from '@/types/task'
@@ -30,6 +31,13 @@ export default function EventDetailPanel({ block, onClose, onChatAbout, onDelete
 
   useEffect(() => {
     getBlockDetail(block.id).then(setDetail).catch(() => {})
+  }, [block.id])
+
+  // Re-fetch when Alfred updates the calendar via chat
+  useEffect(() => {
+    return on(REFRESH_CALENDAR, () => {
+      getBlockDetail(block.id).then(setDetail).catch(() => {})
+    })
   }, [block.id])
 
   useEffect(() => {
@@ -116,6 +124,7 @@ export default function EventDetailPanel({ block, onClose, onChatAbout, onDelete
     try {
       await updateBlock(block.id, { title: trimmed })
       setDetail((prev) => ({ ...prev, task_title: trimmed, title: trimmed }))
+      emit(REFRESH_CALENDAR)
     } catch {
       // ignore
     }

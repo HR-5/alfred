@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -45,9 +46,28 @@ async def lifespan(app: FastAPI):
             )
             logger.info("Telegram bot running in polling mode")
 
+    # Push notification reminder loop
+    from app.services import push_service
+    reminder_task = asyncio.create_task(
+        push_service.reminder_loop(
+            app.state.session_factory,
+            settings.timezone,
+            settings.reminder_lead_time_min,
+        )
+    )
+    app.state.reminder_task = reminder_task
+    logger.info("Push reminder loop started (lead=%d min)", settings.reminder_lead_time_min)
+
     yield
 
     # Shutdown
+    if hasattr(app.state, "reminder_task"):
+        app.state.reminder_task.cancel()
+        try:
+            await app.state.reminder_task
+        except asyncio.CancelledError:
+            pass
+
     if settings.telegram_bot_token:
         from app.services import telegram_service
 

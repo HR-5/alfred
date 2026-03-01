@@ -90,7 +90,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "update_task",
-        "description": "Update an existing task. Use task_id from list_tasks or find_tasks results.",
+        "description": "Update an existing task. Use task_id from list_tasks or find_tasks results. Optionally add a note.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -104,6 +104,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 },
                 "estimated_minutes": {"type": "integer"},
                 "category": {"type": "string"},
+                "note": {"type": "string", "description": "Add a note to the task (appended, not replacing existing notes)"},
             },
             "required": ["task_id"],
         },
@@ -172,11 +173,12 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "update_calendar_block",
-        "description": "Move/resize a calendar block to a new date or time.",
+        "description": "Move/resize a calendar block to a new date or time, or rename it.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "block_id": {"type": "string", "description": "Block ID to update"},
+                "title": {"type": "string", "description": "New display title for the block"},
                 "scheduled_date": {"type": "string", "description": "New date (YYYY-MM-DD)"},
                 "start_time": {"type": "string", "description": "New start time (HH:MM)"},
                 "end_time": {"type": "string", "description": "New end time (HH:MM)"},
@@ -234,6 +236,152 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": [],
         },
     },
+    {
+        "name": "create_calendar_event",
+        "description": "Create a standalone calendar event (not linked to any task). Use this when the user says 'add an event/meeting/appointment' at a specific time.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Event title"},
+                "date": {"type": "string", "description": "Date (YYYY-MM-DD)"},
+                "start_time": {"type": "string", "description": "Start time (HH:MM, 24-hour)"},
+                "end_time": {"type": "string", "description": "End time (HH:MM, 24-hour)"},
+            },
+            "required": ["title", "date", "start_time", "end_time"],
+        },
+    },
+    {
+        "name": "schedule_task_as_event",
+        "description": "Convert a task into a calendar event by creating a time block for it at a specific date and time.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "Task ID to schedule"},
+                "date": {"type": "string", "description": "Date (YYYY-MM-DD)"},
+                "start_time": {"type": "string", "description": "Start time (HH:MM, 24-hour)"},
+                "end_time": {"type": "string", "description": "End time (HH:MM, 24-hour)"},
+            },
+            "required": ["task_id", "date", "start_time", "end_time"],
+        },
+    },
+    {
+        "name": "add_task_note",
+        "description": "Add a note to a task. Use task_id from list_tasks or find_tasks results.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "Task ID"},
+                "content": {"type": "string", "description": "Note content"},
+            },
+            "required": ["task_id", "content"],
+        },
+    },
+    {
+        "name": "get_task_notes",
+        "description": "Get all notes for a task.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "Task ID"},
+            },
+            "required": ["task_id"],
+        },
+    },
+    {
+        "name": "add_block_note",
+        "description": "Add a note to a calendar event/block.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "block_id": {"type": "string", "description": "Calendar block ID"},
+                "content": {"type": "string", "description": "Note content"},
+            },
+            "required": ["block_id", "content"],
+        },
+    },
+    {
+        "name": "get_block_notes",
+        "description": "Get all notes for a calendar event/block.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "block_id": {"type": "string", "description": "Calendar block ID"},
+            },
+            "required": ["block_id"],
+        },
+    },
+    {
+        "name": "save_memory",
+        "description": "Save a fact, preference, or piece of information about the user to long-term memory. Use proactively when the user shares preferences, habits, or important context (e.g. 'I prefer mornings for deep work', 'I have a standing team meeting every Monday at 10am'). Do NOT re-save things already in memory.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "content": {"type": "string", "description": "The fact or preference to remember"},
+                "category": {
+                    "type": "string",
+                    "description": "Category: preference, habit, fact, schedule, or other",
+                    "enum": ["preference", "habit", "fact", "schedule", "other"],
+                },
+            },
+            "required": ["content"],
+        },
+    },
+    {
+        "name": "recall_memories",
+        "description": "Search long-term memory for facts or preferences related to a query. Use when you need to recall something the user has told you previously.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query to find relevant memories"},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "forget_memory",
+        "description": "Remove a specific memory that is outdated or incorrect. Use memory_id from recall_memories results.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "memory_id": {"type": "string", "description": "Memory ID to forget"},
+            },
+            "required": ["memory_id"],
+        },
+    },
+    {
+        "name": "create_project",
+        "description": "Create a new project to group related tasks. Projects help organize work by theme, client, or goal.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Project name"},
+                "description": {"type": "string", "description": "Brief description of the project"},
+                "color": {"type": "string", "description": "Hex color code (e.g. #6366f1)"},
+            },
+            "required": ["title"],
+        },
+    },
+    {
+        "name": "list_projects",
+        "description": "List all projects with their task counts.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "add_task_to_project",
+        "description": "Assign an existing task to a project. Use task_id from find_tasks and project_id from list_projects.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "Task ID to assign"},
+                "project_id": {"type": "string", "description": "Project ID to assign to"},
+            },
+            "required": ["task_id", "project_id"],
+        },
+    },
 ]
 
 
@@ -272,6 +420,30 @@ async def execute_tool(
                 return await _exec_sync_google_calendar(tool_input, session, settings)
             case "get_google_events":
                 return await _exec_get_google_events(tool_input, session, settings)
+            case "create_calendar_event":
+                return await _exec_create_calendar_event(tool_input, session)
+            case "schedule_task_as_event":
+                return await _exec_schedule_task_as_event(tool_input, session)
+            case "add_task_note":
+                return await _exec_add_task_note(tool_input, session)
+            case "get_task_notes":
+                return await _exec_get_task_notes(tool_input, session)
+            case "add_block_note":
+                return await _exec_add_block_note(tool_input, session)
+            case "get_block_notes":
+                return await _exec_get_block_notes(tool_input, session)
+            case "save_memory":
+                return await _exec_save_memory(tool_input, session)
+            case "recall_memories":
+                return await _exec_recall_memories(tool_input, session)
+            case "forget_memory":
+                return await _exec_forget_memory(tool_input, session)
+            case "create_project":
+                return await _exec_create_project(tool_input, session)
+            case "list_projects":
+                return await _exec_list_projects(tool_input, session)
+            case "add_task_to_project":
+                return await _exec_add_task_to_project(tool_input, session)
             case _:
                 return {"error": f"Unknown tool: {name}"}
     except Exception as exc:
@@ -421,7 +593,7 @@ async def _auto_schedule_task(task, session: AsyncSession, settings: Settings) -
 
 
 async def _exec_update_task(inp: dict, session: AsyncSession) -> dict:
-    task_id = inp.pop("task_id")
+    task_id = inp["task_id"]
     update_fields = {}
     if "title" in inp:
         update_fields["title"] = inp["title"]
@@ -439,6 +611,10 @@ async def _exec_update_task(inp: dict, session: AsyncSession) -> dict:
     task = await task_service.update_task(task_id, TaskUpdate(**update_fields), session)
     if not task:
         return {"error": f"Task {task_id} not found"}
+
+    if inp.get("note"):
+        await task_service.add_note(task_id, inp["note"], session, source="alfred")
+
     return {"updated": _task_to_dict(task)}
 
 
@@ -500,8 +676,10 @@ async def _exec_delete_calendar_block(inp: dict, session: AsyncSession) -> dict:
 
 
 async def _exec_update_calendar_block(inp: dict, session: AsyncSession) -> dict:
-    block_id = inp.pop("block_id")
+    block_id = inp["block_id"]
     update_data = {}
+    if "title" in inp:
+        update_data["title"] = inp["title"]
     if "scheduled_date" in inp:
         update_data["scheduled_date"] = date.fromisoformat(inp["scheduled_date"])
     if "start_time" in inp:
@@ -581,3 +759,141 @@ async def _exec_get_google_events(
         ],
         "count": len(events),
     }
+
+
+async def _exec_create_calendar_event(inp: dict, session: AsyncSession) -> dict:
+    from datetime import time as time_type
+
+    start_parts = inp["start_time"].split(":")
+    end_parts = inp["end_time"].split(":")
+    start_time = time_type(int(start_parts[0]), int(start_parts[1]))
+    end_time = time_type(int(end_parts[0]), int(end_parts[1]))
+    event_date = date.fromisoformat(inp["date"])
+
+    block = await calendar_service.create_block(
+        CalendarBlockCreate(
+            task_id=None,
+            title=inp["title"],
+            scheduled_date=event_date,
+            start_time=start_time,
+            end_time=end_time,
+            is_locked=False,
+        ),
+        session,
+    )
+    return {"created": _block_to_dict(block)}
+
+
+async def _exec_schedule_task_as_event(inp: dict, session: AsyncSession) -> dict:
+    from datetime import time as time_type
+
+    start_parts = inp["start_time"].split(":")
+    end_parts = inp["end_time"].split(":")
+    start_time = time_type(int(start_parts[0]), int(start_parts[1]))
+    end_time = time_type(int(end_parts[0]), int(end_parts[1]))
+    event_date = date.fromisoformat(inp["date"])
+
+    block = await calendar_service.create_block(
+        CalendarBlockCreate(
+            task_id=inp["task_id"],
+            scheduled_date=event_date,
+            start_time=start_time,
+            end_time=end_time,
+            is_locked=True,
+        ),
+        session,
+    )
+    return {"created": _block_to_dict(block)}
+
+
+async def _exec_add_task_note(inp: dict, session: AsyncSession) -> dict:
+    note = await task_service.add_note(inp["task_id"], inp["content"], session, source="alfred")
+    if not note:
+        return {"error": f"Task {inp['task_id']} not found"}
+    return {"added": {"id": note.id, "content": note.content}}
+
+
+async def _exec_get_task_notes(inp: dict, session: AsyncSession) -> dict:
+    task = await task_service.get_task(inp["task_id"], session)
+    if not task:
+        return {"error": f"Task {inp['task_id']} not found"}
+    notes = [{"id": n.id, "content": n.content, "source": n.source} for n in (task.notes or [])]
+    return {"notes": notes, "count": len(notes)}
+
+
+async def _exec_add_block_note(inp: dict, session: AsyncSession) -> dict:
+    note = await calendar_service.add_note(inp["block_id"], inp["content"], session, source="alfred")
+    if not note:
+        return {"error": f"Block {inp['block_id']} not found"}
+    return {"added": {"id": note.id, "content": note.content}}
+
+
+async def _exec_get_block_notes(inp: dict, session: AsyncSession) -> dict:
+    block = await calendar_service.get_block_detail(inp["block_id"], session)
+    if not block:
+        return {"error": f"Block {inp['block_id']} not found"}
+    notes = [{"id": n.id, "content": n.content, "source": n.source} for n in (block.notes or [])]
+    return {"notes": notes, "count": len(notes)}
+
+
+async def _exec_save_memory(inp: dict, session: AsyncSession) -> dict:
+    from app.services import memory_service
+    mem = await memory_service.create_memory(
+        content=inp["content"],
+        session=session,
+        category=inp.get("category"),
+    )
+    return {"saved": {"id": mem.id, "content": mem.content, "category": mem.category}}
+
+
+async def _exec_recall_memories(inp: dict, session: AsyncSession) -> dict:
+    from app.services import memory_service
+    memories = await memory_service.search_memories(inp["query"], session)
+    return {
+        "memories": [
+            {"id": m.id, "content": m.content, "category": m.category}
+            for m in memories
+        ],
+        "count": len(memories),
+    }
+
+
+async def _exec_forget_memory(inp: dict, session: AsyncSession) -> dict:
+    from app.services import memory_service
+    forgotten = await memory_service.forget_memory(inp["memory_id"], session)
+    if not forgotten:
+        return {"error": f"Memory {inp['memory_id']} not found"}
+    return {"forgotten": True, "memory_id": inp["memory_id"]}
+
+
+async def _exec_create_project(inp: dict, session: AsyncSession) -> dict:
+    from app.services import project_service
+    from app.schemas.project import ProjectCreate
+
+    data = ProjectCreate(
+        title=inp["title"],
+        description=inp.get("description"),
+        color=inp.get("color", "#6366f1"),
+    )
+    proj = await project_service.create_project(data, session)
+    return {"created": {"id": proj.id, "title": proj.title, "color": proj.color}}
+
+
+async def _exec_list_projects(inp: dict, session: AsyncSession) -> dict:
+    from app.services import project_service
+
+    projects = await project_service.list_projects(session)
+    result = []
+    for p in projects:
+        count = await project_service.get_task_count(p.id, session)
+        result.append({"id": p.id, "title": p.title, "color": p.color, "task_count": count})
+    return {"projects": result, "count": len(result)}
+
+
+async def _exec_add_task_to_project(inp: dict, session: AsyncSession) -> dict:
+    from app.services import project_service
+
+    task = await project_service.assign_task_to_project(inp["task_id"], inp["project_id"], session)
+    if not task:
+        return {"error": f"Task {inp['task_id']} not found"}
+    return {"assigned": True, "task_id": task.id, "project_id": inp["project_id"]}

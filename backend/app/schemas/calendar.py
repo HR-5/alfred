@@ -51,7 +51,8 @@ class BlockDetailResponse(CalendarBlockResponse):
 
 
 class CalendarBlockCreate(BaseModel):
-    task_id: str
+    task_id: Optional[str] = None
+    title: Optional[str] = None
     scheduled_date: date
     start_time: time
     end_time: time

@@ -1,5 +1,18 @@
-import type { ChatResponse } from '@/types/chat'
+import type { ChatResponse, Message } from '@/types/chat'
 import client from './client'
+
+export async function fetchChatHistory(sessionId: string, limit = 40): Promise<Message[]> {
+  const { data } = await client.get<{ messages: Array<{ id: string; role: string; content: string; timestamp: string }> }>(
+    '/chat/history',
+    { params: { session_id: sessionId, limit } },
+  )
+  return data.messages.map((m) => ({
+    id: m.id,
+    role: m.role as 'user' | 'assistant',
+    content: m.content,
+    timestamp: m.timestamp,
+  }))
+}
 
 export async function sendMessage(
   message: string,
@@ -38,6 +51,7 @@ export async function sendMessageStream(
   const reader = resp.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let currentEvent = ''
 
   while (true) {
     const { done, value } = await reader.read()
@@ -47,7 +61,6 @@ export async function sendMessageStream(
     const lines = buffer.split('\n')
     buffer = lines.pop() || ''
 
-    let currentEvent = ''
     for (const line of lines) {
       if (line.startsWith('event: ')) {
         currentEvent = line.slice(7).trim()

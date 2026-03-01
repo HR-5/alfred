@@ -6,6 +6,7 @@ import ChatPanel from '@/components/chat/ChatPanel'
 import TaskDrawer from '@/components/tasks/TaskDrawer'
 import EventDetailPanel from '@/components/calendar/EventDetailPanel'
 import { useChatStore } from '@/store/chatStore'
+import { useUIStore } from '@/store/uiStore'
 import type { CalendarBlock } from '@/types/calendar'
 import { formatTime } from '@/utils/date'
 import { cn } from '@/utils/cn'
@@ -14,12 +15,18 @@ type MobileTab = 'calendar' | 'chat'
 
 export default function CanvasLayout() {
   const setDraftMessage = useChatStore((s) => s.setDraftMessage)
+  const setPinnedEvent = useUIStore((s) => s.setPinnedEvent)
   const [mobileTab, setMobileTab] = useState<MobileTab>('chat')
   const [selectedBlock, setSelectedBlock] = useState<CalendarBlock | null>(null)
 
   const handleBlockClick = useCallback((block: CalendarBlock) => {
     setSelectedBlock(block)
   }, [])
+
+  const handleBlockDoubleClick = useCallback((block: CalendarBlock) => {
+    setPinnedEvent(block)
+    setMobileTab('chat')
+  }, [setPinnedEvent])
 
   const handleChatAbout = useCallback(
     (block: CalendarBlock) => {
@@ -80,7 +87,7 @@ export default function CanvasLayout() {
           )}
         >
           <div className="flex-1 overflow-hidden">
-            <WeekView onBlockClick={handleBlockClick} />
+            <WeekView onBlockClick={handleBlockClick} onBlockDoubleClick={handleBlockDoubleClick} />
           </div>
           <TaskDrawer />
         </div>
@@ -120,7 +127,7 @@ export default function CanvasLayout() {
         ) : mobileTab === 'calendar' ? (
           <div className="h-full flex flex-col overflow-hidden">
             <div className="flex-1 overflow-hidden">
-              <DayView onBlockClick={handleBlockClick} />
+              <DayView onBlockClick={handleBlockClick} onBlockDoubleClick={handleBlockDoubleClick} />
             </div>
             <TaskDrawer />
           </div>

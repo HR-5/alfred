@@ -10,6 +10,7 @@ interface Props {
   onLockToggle?: (blockId: string) => void
   onDelete?: (blockId: string) => void
   onClick?: (block: CalendarBlock) => void
+  onDoubleClick?: (block: CalendarBlock) => void
 }
 
 export default function TimeBlock({
@@ -19,6 +20,7 @@ export default function TimeBlock({
   onLockToggle,
   onDelete,
   onClick,
+  onDoubleClick,
 }: Props) {
   const colors = priorityBlockColors(block.task_priority)
   const isCompact = height < 36
@@ -36,6 +38,7 @@ export default function TimeBlock({
         height: `${height}px`,
       }}
       onClick={() => onClick?.(block)}
+      onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick?.(block) }}
     >
       <div className={cn('px-1.5', isCompact ? 'py-px flex items-center gap-1.5' : 'py-1')}>
         <p

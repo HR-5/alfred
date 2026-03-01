@@ -19,9 +19,10 @@ const WORK_END = 24
 
 interface Props {
   onBlockClick?: (block: CalendarBlock) => void
+  onBlockDoubleClick?: (block: CalendarBlock) => void
 }
 
-export default function WeekView({ onBlockClick }: Props = {}) {
+export default function WeekView({ onBlockClick, onBlockDoubleClick }: Props = {}) {
   const [weekStart, setWeekStart] = useState<Date>(getWeekStart())
   const [blocks, setBlocks] = useState<CalendarBlock[]>([])
   const [loading, setLoading] = useState(true)
@@ -31,11 +32,16 @@ export default function WeekView({ onBlockClick }: Props = {}) {
   const [unschedulableCount, setUnschedulableCount] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const didScroll = useRef(false)
+  const savedScrollTop = useRef<number>(0)
 
   const weekDays = getWeekDays(weekStart)
   const weekStartStr = toISODate(weekStart)
 
   const fetchBlocks = useCallback(async () => {
+    // Save current scroll position before reload
+    if (scrollRef.current && didScroll.current) {
+      savedScrollTop.current = scrollRef.current.scrollTop
+    }
     setLoading(true)
     try {
       const resp = await getWeekBlocks(weekStartStr)
@@ -89,13 +95,19 @@ export default function WeekView({ onBlockClick }: Props = {}) {
     setSyncing(false)
   }
 
-  // Auto-scroll to current hour on first load
+  // Scroll management: initial scroll to 5am, then restore position on refreshes
   useEffect(() => {
-    if (!loading && scrollRef.current && !didScroll.current) {
-      didScroll.current = true
-      const now = new Date()
-      const scrollToHour = Math.max(0, now.getHours() - 1)
-      scrollRef.current.scrollTop = scrollToHour * HOUR_HEIGHT
+    if (!loading && scrollRef.current) {
+      if (!didScroll.current) {
+        // First load: scroll to 5am (or current hour if later)
+        didScroll.current = true
+        const now = new Date()
+        const scrollToHour = Math.max(5, now.getHours() - 1)
+        scrollRef.current.scrollTop = scrollToHour * HOUR_HEIGHT
+      } else {
+        // Subsequent fetches: restore saved position
+        scrollRef.current.scrollTop = savedScrollTop.current
+      }
     }
   }, [loading])
 
@@ -315,6 +327,7 @@ export default function WeekView({ onBlockClick }: Props = {}) {
                     onLockToggle={handleLockToggle}
                     onDelete={handleDelete}
                     onBlockClick={onBlockClick}
+                    onBlockDoubleClick={onBlockDoubleClick}
                   />
                 )
               })}

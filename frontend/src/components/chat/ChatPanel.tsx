@@ -1,18 +1,27 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useChatStore } from '@/store/chatStore'
-import { sendMessageStream } from '@/api/chat'
+import { sendMessageStream, fetchChatHistory } from '@/api/chat'
 import { completeTask, deleteTask } from '@/api/tasks'
 import { emit, REFRESH_CALENDAR, REFRESH_TASKS } from '@/utils/events'
 import MessageList from './MessageList'
 import ChatInput from './ChatInput'
-import type { Message } from '@/types/chat'
+import type { Message, ReferencedTask, ReferencedBlock } from '@/types/chat'
 
 function makeId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2)
 }
 
 export default function ChatPanel() {
-  const { addMessage, addThinkingStep, updateLastThinkingStep, updateLastAssistant, setLoading, sessionId } = useChatStore()
+  const { addMessage, addThinkingStep, updateLastThinkingStep, updateLastAssistant, setLoading, sessionId, historyLoaded, seedMessages, setHistoryLoaded } = useChatStore()
+
+  // Load chat history on mount (once per session)
+  useEffect(() => {
+    if (historyLoaded) return
+    setHistoryLoaded(true)
+    fetchChatHistory(sessionId).then((msgs) => {
+      if (msgs.length > 0) seedMessages(msgs)
+    }).catch(() => {})
+  }, [sessionId, historyLoaded, seedMessages, setHistoryLoaded])
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -55,6 +64,8 @@ export default function ChatPanel() {
               updateLastAssistant({
                 content: event.data.reply as string,
                 loading: false,
+                referenced_tasks: event.data.referenced_tasks as ReferencedTask[] | undefined,
+                referenced_blocks: event.data.referenced_blocks as ReferencedBlock[] | undefined,
               })
               // Refresh calendar + tasks since chat may have modified them
               emit(REFRESH_CALENDAR)
@@ -77,7 +88,7 @@ export default function ChatPanel() {
         setLoading(false)
       }
     },
-    [addMessage, addThinkingStep, updateLastThinkingStep, updateLastAssistant, setLoading, sessionId]
+    [addMessage, addThinkingStep, updateLastThinkingStep, updateLastAssistant, setLoading, sessionId] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   const handleQuickAction = useCallback(

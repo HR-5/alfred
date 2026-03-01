@@ -54,6 +54,7 @@ async def create_block(data: CalendarBlockCreate, session: AsyncSession) -> Cale
 
     block = CalendarBlock(
         task_id=data.task_id,
+        title=data.title if data.title else None,
         scheduled_date=data.scheduled_date,
         start_time=data.start_time,
         end_time=data.end_time,
@@ -116,8 +117,8 @@ async def update_block(
         block.task.times_rescheduled += 1
 
     await session.commit()
-    await session.refresh(block)
-    return block
+    # Re-fetch with task relationship eagerly loaded
+    return await get_block(block_id, session)
 
 
 async def delete_block(block_id: str, session: AsyncSession) -> bool:

@@ -6,6 +6,19 @@ export interface QuickAction {
   payload: Record<string, unknown>
 }
 
+export interface ReferencedTask {
+  id: string
+  title: string
+}
+
+export interface ReferencedBlock {
+  id: string
+  title: string
+  date: string
+  start_time: string
+  end_time: string
+}
+
 export interface ChatResponse {
   reply: string
   intent_type: string | null
@@ -34,4 +47,6 @@ export interface Message {
   quick_actions?: QuickAction[]
   loading?: boolean
   thinking_steps?: ThinkingStep[]
+  referenced_tasks?: ReferencedTask[]
+  referenced_blocks?: ReferencedBlock[]
 }

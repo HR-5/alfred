@@ -23,6 +23,7 @@ google = [
     "google-api-python-client>=2.140.0",
 ]
 telegram = ["python-telegram-bot>=21.0"]
+push = ["pywebpush>=2.0.0"]
 all = [
     "anthropic>=0.40.0",
     "openai>=1.50.0",
@@ -30,6 +31,7 @@ all = [
     "google-auth-httplib2>=0.2.0",
     "google-api-python-client>=2.140.0",
     "python-telegram-bot>=21.0",
+    "pywebpush>=2.0.0",
 ]
 dev = [
     "pytest>=8.0.0",

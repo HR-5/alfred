@@ -86,7 +86,12 @@ class Task(Base, TimestampMixin):
     source: Mapped[str] = mapped_column(String(50), default="chat")
     metadata_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    project_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
+
     # Relationships
+    project: Mapped[Optional["Project"]] = relationship(back_populates="tasks")  # type: ignore[name-defined]
     notes: Mapped[list["TaskNote"]] = relationship(
         back_populates="task", cascade="all, delete-orphan"
     )
