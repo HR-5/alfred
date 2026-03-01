@@ -5,3 +5,4 @@ from app.models.integration import GoogleCalendarAuth  # noqa: F401
 from app.models.memory import Memory  # noqa: F401
 from app.models.push_subscription import PushSubscription  # noqa: F401
 from app.models.project import Project  # noqa: F401
+from app.models.blocked_site import BlockedSite  # noqa: F401

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alfred — Access Blocked</title>
+  <link rel="stylesheet" href="blocker.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header id="top-bar">
+      <div id="status-dot"></div>
+      <div id="header-text">
+        <span id="site-label">Site Blocked</span>
+        <span id="header-sub">Convince Alfred to grant you access.</span>
+      </div>
+    </header>
+
+    <!-- COOLDOWN MODE: shown instead of main layout when in lockout -->
+    <div id="cooldown-screen" class="hidden">
+      <div id="cooldown-inner">
+        <div id="cooldown-icon">⏳</div>
+        <h2 id="cooldown-title">Lockout Active</h2>
+        <p id="cooldown-desc">You used your micro-break, sir. The consequence:</p>
+        <div id="cooldown-timer">--:--</div>
+        <p id="cooldown-note">remaining before you may argue your case again.</p>
+      </div>
+    </div>
+
+    <!-- NORMAL MODE: shown when not in cooldown -->
+    <div id="main-layout">
+      <!-- Left: Today's schedule -->
+      <aside id="schedule-panel">
+        <h2 class="panel-label">TODAY'S SCHEDULE</h2>
+        <div id="schedule-list">
+          <p class="muted-text">Loading…</p>
+        </div>
+
+        <!-- Specific link section -->
+        <div id="link-section">
+          <h2 class="panel-label" style="margin-top: 16px;">WATCH A SPECIFIC LINK</h2>
+          <p class="muted-text" style="font-size: 11px; margin-bottom: 8px; line-height: 1.4;">
+            Paste a link someone shared. It will play here — no browsing.
+          </p>
+          <div id="link-input-row">
+            <input
+              type="text"
+              id="link-input"
+              placeholder="Paste URL here…"
+              autocomplete="off"
+            />
+            <button id="link-btn" title="Load">▶</button>
+          </div>
+          <div id="embed-container" class="hidden">
+            <iframe
+              id="embed-frame"
+              allowfullscreen
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen; accelerometer; gyroscope"
+              referrerpolicy="no-referrer"
+            ></iframe>
+            <button id="close-embed-btn" title="Close">✕</button>
+          </div>
+          <div id="embed-fallback" class="hidden">
+            <p class="muted-text" style="font-size: 11px;">This site can't be embedded.</p>
+            <a id="embed-link" href="#" target="_blank" rel="noopener">Open in new tab ↗</a>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Right: Alfred chat -->
+      <section id="chat-panel">
+        <h2 class="panel-label">ALFRED</h2>
+        <div id="messages"></div>
+        <div id="input-area">
+          <textarea
+            id="chat-input"
+            placeholder="State your case, sir…"
+            rows="1"
+          ></textarea>
+          <button id="send-btn" title="Send">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+        <p id="input-hint">Enter to send · Shift+Enter for new line</p>
+
+        <!-- After-hours bypass: shown only between 22:00–00:00 -->
+        <div id="afterhours-bypass" class="hidden">
+          <div id="afterhours-inner">
+            <span id="afterhours-label">🌙 After-hours mode</span>
+            <button id="afterhours-btn">Bypass Alfred</button>
+          </div>
+          <p id="afterhours-note">It's late. Alfred will let you have 30 minutes, no questions asked.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="blocker.js"></script>
+</body>
+</html>

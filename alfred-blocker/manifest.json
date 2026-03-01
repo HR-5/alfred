@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "Alfred Blocker",
+  "version": "1.0.0",
+  "description": "Alfred Pennyworth guards your distracting sites.",
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications",
+    "webNavigation",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://localhost:8000/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; frame-src https://www.youtube.com https://*.youtube.com https://www.youtube-nocookie.com"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*/*"],
+      "js": ["badge.js"],
+      "css": ["badge.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*.png"],
+      "matches": ["*://*/*"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Alfred Blocker"
+  }
+}

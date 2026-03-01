@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Alfred Blocker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #19191d;
+      color: #ededef;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 12px;
+      padding: 14px;
+      width: 230px;
+      min-height: 60px;
+    }
+    h3 {
+      font-size: 12px;
+      font-weight: 600;
+      color: #be9685;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    h3 svg { width: 13px; height: 13px; }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 0;
+      border-bottom: 1px solid #3e3e44;
+    }
+    .row:last-child { border-bottom: none; }
+    .site-name { color: #ededef; font-weight: 500; }
+    .site-pattern { color: #6b6b73; font-size: 10px; font-family: monospace; }
+    .status { font-size: 10px; font-weight: 600; }
+    .status.blocked { color: #b54d4d; }
+    .status.allowed { color: #65ad7a; }
+    .status.cooldown { color: #be9685; }
+    .empty { color: #6b6b73; font-size: 11px; text-align: center; padding: 8px 0; }
+    #refresh-btn {
+      display: block;
+      width: 100%;
+      margin-top: 10px;
+      padding: 6px;
+      background: #3e3e44;
+      border: none;
+      border-radius: 6px;
+      color: #ededef;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    #refresh-btn:hover { background: #4a4a52; }
+  </style>
+</head>
+<body>
+  <h3>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </svg>
+    Alfred Blocker
+  </h3>
+
+  <div id="list"><p class="empty">Loading…</p></div>
+  <button id="refresh-btn">Refresh list</button>
+
+  <script>
+    function fmt(ms) {
+      const rem = Math.max(0, Math.ceil((ms - Date.now()) / 60000));
+      return rem > 0 ? `${rem}m left` : 'blocked';
+    }
+
+    function render(statuses) {
+      const list = document.getElementById('list');
+      if (!statuses || statuses.length === 0) {
+        list.innerHTML = '<p class="empty">No sites configured.<br>Add them in Alfred.</p>';
+        return;
+      }
+      list.innerHTML = statuses.map((s) => {
+        const now = Date.now();
+        const isAllowed = s.allowed && s.allowedUntil && now < s.allowedUntil;
+        const isCooldown = !isAllowed && s.inCooldown && s.cooldownUntil && now < s.cooldownUntil;
+        let statusText, statusClass;
+        if (isAllowed) {
+          statusText = fmt(s.allowedUntil);
+          statusClass = 'allowed';
+        } else if (isCooldown) {
+          statusText = `lockout ${fmt(s.cooldownUntil)}`;
+          statusClass = 'cooldown';
+        } else {
+          statusText = 'blocked';
+          statusClass = 'blocked';
+        }
+        return `
+          <div class="row">
+            <div>
+              <div class="site-name">${s.name}</div>
+              <div class="site-pattern">${s.pattern}</div>
+            </div>
+            <div class="status ${statusClass}">${statusText}</div>
+          </div>`;
+      }).join('');
+    }
+
+    function load() {
+      chrome.runtime.sendMessage({ type: 'GET_STATUS' }, (resp) => {
+        render(resp?.statuses || []);
+      });
+    }
+
+    document.getElementById('refresh-btn').addEventListener('click', () => {
+      document.getElementById('list').innerHTML = '<p class="empty">Refreshing…</p>';
+      chrome.runtime.sendMessage({ type: 'REFRESH_LIST' }, load);
+    });
+
+    load();
+  </script>
+</body>
+</html>

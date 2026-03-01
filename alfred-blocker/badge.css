@@ -1,0 +1,71 @@
+/* Alfred Blocker — floating badge (content script) */
+
+#__alfred-badge__ {
+  position: fixed !important;
+  bottom: 20px !important;
+  left: 20px !important;
+  width: 56px !important;
+  height: 56px !important;
+  background: #19191d !important;
+  border: 1.5px solid #be9685 !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  cursor: move !important;
+  z-index: 2147483647 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(190, 150, 133, 0.15) !important;
+  user-select: none !important;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+
+#__alfred-badge__:hover {
+  border-color: #d4a896 !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(190, 150, 133, 0.3) !important;
+}
+
+/* Warning: < 2 min remaining */
+#__alfred-badge__.__ab-warn__ {
+  border-color: #b54d4d !important;
+  box-shadow: 0 4px 20px rgba(181, 77, 77, 0.45), 0 0 0 1px rgba(181, 77, 77, 0.2) !important;
+  animation: __ab-pulse__ 1.2s ease-in-out infinite !important;
+}
+
+@keyframes __ab-pulse__ {
+  0%, 100% { transform: scale(1) !important; }
+  50% { transform: scale(1.06) !important; }
+}
+
+/* Alfred logo */
+#__alfred-badge__ .__ab-logo__ {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 6px !important;
+  display: block !important;
+  flex-shrink: 0 !important;
+  object-fit: cover !important;
+  opacity: 0.95 !important;
+}
+
+#__alfred-badge__.__ab-warn__ .__ab-logo__ {
+  opacity: 0.7 !important;
+  filter: saturate(0.3) !important;
+}
+
+/* Countdown text */
+#__alfred-badge__ .__ab-time__ {
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  color: #be9685 !important;
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', monospace, system-ui !important;
+  letter-spacing: 0.5px !important;
+  line-height: 1 !important;
+  display: block !important;
+}
+
+#__alfred-badge__.__ab-warn__ .__ab-time__ {
+  color: #b54d4d !important;
+}
