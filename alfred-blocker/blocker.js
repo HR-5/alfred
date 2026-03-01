@@ -9,6 +9,7 @@ const originalUrl = params.get('from') || 'https://www.youtube.com';
 const siteName = params.get('site') || 'this site';
 const sitePattern = params.get('pattern') || '';
 const cooldownMs = parseInt(params.get('cooldown') || '0', 10);
+const isPermanent = params.get('permanent') === '1';
 
 // ── After-hours check (22:00–23:59) ──────────────────────────────────────────
 
@@ -95,6 +96,48 @@ async function loadSchedule() {
     }).join('');
   } catch {
     container.innerHTML = '<p class="muted-text">Could not load schedule.<br>Is Alfred running?</p>';
+  }
+}
+
+// ── Saved links suggestions ──────────────────────────────────────────────────
+
+async function loadSuggestions() {
+  const section = document.getElementById('suggestions-section');
+  const list = document.getElementById('suggestions-list');
+  try {
+    const resp = await fetch(`${ALFRED_API}/saved-links/suggestions`);
+    if (!resp.ok) return;
+    const links = await resp.json();
+    if (links.length === 0) return;
+
+    section.classList.remove('hidden');
+    list.innerHTML = links.map((link) => {
+      const typeLabels = { article: 'Article', video: 'Video', book: 'Book', podcast: 'Podcast', other: 'Link' };
+      const badge = typeLabels[link.link_type] || 'Link';
+      const desc = link.description ? `<div class="suggestion-desc">${link.description}</div>` : '';
+      return `
+        <div class="suggestion-card" data-id="${link.id}">
+          <div class="suggestion-header">
+            <span class="suggestion-badge">${badge}</span>
+            <button class="suggestion-done-btn" data-id="${link.id}" title="Mark as read">\u2713</button>
+          </div>
+          <a class="suggestion-title" href="${link.url}" target="_blank" rel="noopener">${link.title}</a>
+          ${desc}
+        </div>`;
+    }).join('');
+
+    // Mark-as-read handlers
+    list.querySelectorAll('.suggestion-done-btn').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        await fetch(`${ALFRED_API}/saved-links/${id}/read`, { method: 'PATCH' });
+        btn.closest('.suggestion-card').remove();
+        if (list.children.length === 0) section.classList.add('hidden');
+      });
+    });
+  } catch {
+    // silently fail — suggestions are optional
   }
 }
 
@@ -333,6 +376,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const label = document.getElementById('site-label');
   if (label) label.textContent = `${siteName} Blocked`;
 
+  // If permanently blocked — no negotiation
+  if (isPermanent) {
+    document.getElementById('main-layout').classList.add('hidden');
+    document.getElementById('cooldown-screen').classList.remove('hidden');
+    document.getElementById('cooldown-icon').textContent = '\u26d4';
+    document.getElementById('cooldown-title').textContent = 'Permanently Blocked';
+    document.getElementById('cooldown-desc').textContent =
+      `${siteName} is not available, sir. Not now, not ever.`;
+    document.getElementById('cooldown-timer').textContent = '\u221e';
+    document.getElementById('cooldown-note').textContent =
+      'No breaks. No negotiation. Close this tab.';
+    return;
+  }
+
   // If in cooldown — show lockout screen instead
   if (cooldownMs > 0) {
     showCooldown(cooldownMs);
@@ -341,6 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Normal mode
   loadSchedule();
+  loadSuggestions();
 
   appendMessage(
     'alfred',

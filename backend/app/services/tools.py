@@ -382,6 +382,62 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["task_id", "project_id"],
         },
     },
+    {
+        "name": "save_link",
+        "description": "Save a link, article, video, book, or podcast to the user's watch/read later list. Use proactively when the user shares a URL or mentions content they want to consume later.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "URL of the content"},
+                "title": {"type": "string", "description": "Title or short description of the content"},
+                "description": {"type": "string", "description": "Optional longer description or notes"},
+                "link_type": {
+                    "type": "string",
+                    "enum": ["article", "video", "book", "podcast", "other"],
+                    "description": "Type of content",
+                },
+            },
+            "required": ["url", "title"],
+        },
+    },
+    {
+        "name": "list_saved_links",
+        "description": "List the user's saved links (watch/read later list). Can filter by read status or content type.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "is_read": {"type": "boolean", "description": "Filter by read status (true=read, false=unread)"},
+                "link_type": {
+                    "type": "string",
+                    "enum": ["article", "video", "book", "podcast", "other"],
+                    "description": "Filter by content type",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "mark_link_read",
+        "description": "Mark a saved link as read/watched. Use link_id from list_saved_links results.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "link_id": {"type": "string", "description": "Saved link ID to mark as read"},
+            },
+            "required": ["link_id"],
+        },
+    },
+    {
+        "name": "delete_saved_link",
+        "description": "Remove a saved link from the watch/read later list. Use link_id from list_saved_links results.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "link_id": {"type": "string", "description": "Saved link ID to delete"},
+            },
+            "required": ["link_id"],
+        },
+    },
 ]
 
 
@@ -444,6 +500,14 @@ async def execute_tool(
                 return await _exec_list_projects(tool_input, session)
             case "add_task_to_project":
                 return await _exec_add_task_to_project(tool_input, session)
+            case "save_link":
+                return await _exec_save_link(tool_input, session)
+            case "list_saved_links":
+                return await _exec_list_saved_links(tool_input, session)
+            case "mark_link_read":
+                return await _exec_mark_link_read(tool_input, session)
+            case "delete_saved_link":
+                return await _exec_delete_saved_link(tool_input, session)
             case _:
                 return {"error": f"Unknown tool: {name}"}
     except Exception as exc:
@@ -897,3 +961,57 @@ async def _exec_add_task_to_project(inp: dict, session: AsyncSession) -> dict:
     if not task:
         return {"error": f"Task {inp['task_id']} not found"}
     return {"assigned": True, "task_id": task.id, "project_id": inp["project_id"]}
+
+
+def _link_to_dict(link) -> dict:
+    return {
+        "id": link.id,
+        "url": link.url,
+        "title": link.title,
+        "description": link.description,
+        "link_type": link.link_type.value,
+        "is_read": link.is_read,
+    }
+
+
+async def _exec_save_link(inp: dict, session: AsyncSession) -> dict:
+    from app.services import saved_link_service
+    from app.schemas.saved_link import SavedLinkCreate
+
+    data = SavedLinkCreate(
+        url=inp["url"],
+        title=inp["title"],
+        description=inp.get("description"),
+        link_type=inp.get("link_type", "other"),
+    )
+    link = await saved_link_service.create_link(data, session)
+    return {"saved": _link_to_dict(link)}
+
+
+async def _exec_list_saved_links(inp: dict, session: AsyncSession) -> dict:
+    from app.services import saved_link_service
+
+    links = await saved_link_service.list_links(
+        session,
+        is_read=inp.get("is_read"),
+        link_type=inp.get("link_type"),
+    )
+    return {"links": [_link_to_dict(l) for l in links], "count": len(links)}
+
+
+async def _exec_mark_link_read(inp: dict, session: AsyncSession) -> dict:
+    from app.services import saved_link_service
+
+    link = await saved_link_service.mark_read(inp["link_id"], session)
+    if not link:
+        return {"error": f"Link {inp['link_id']} not found"}
+    return {"marked_read": _link_to_dict(link)}
+
+
+async def _exec_delete_saved_link(inp: dict, session: AsyncSession) -> dict:
+    from app.services import saved_link_service
+
+    deleted = await saved_link_service.delete_link(inp["link_id"], session)
+    if not deleted:
+        return {"error": f"Link {inp['link_id']} not found"}
+    return {"deleted": True, "link_id": inp["link_id"]}

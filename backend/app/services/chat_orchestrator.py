@@ -52,6 +52,7 @@ Today is {today} ({day_of_week}). Current time: {current_time}. Timezone: {timez
 - To add notes to a task or calendar block, use `add_task_note` or `add_block_note`.
 - To rename a calendar block/event, use `update_calendar_block` with the `title` field.
 - For project operations, use `create_project`, `list_projects`, and `add_task_to_project`.
+- For saved links (watch/read later): use `save_link` when the user shares a URL or mentions content to consume later. Use `list_saved_links` to show their reading list, `mark_link_read` when they've consumed it, and `delete_saved_link` to remove items.
 - When creating tasks, infer reasonable defaults:
   - "quick call" → 15 min, "meeting" → 30 min, "deep work" → 60 min
   - "urgent"/"ASAP" → critical priority, "important" → high priority
@@ -94,6 +95,10 @@ TOOL_LABELS = {
     "create_project": "Creating project",
     "list_projects": "Listing projects",
     "add_task_to_project": "Assigning task to project",
+    "save_link": "Saving link for later",
+    "list_saved_links": "Checking saved links",
+    "mark_link_read": "Marking link as read",
+    "delete_saved_link": "Removing saved link",
 }
 
 

@@ -22,6 +22,11 @@
       "js": ["badge.js"],
       "css": ["badge.css"],
       "run_at": "document_end"
+    },
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["shorts-hider.js"],
+      "run_at": "document_end"
     }
   ],
   "web_accessible_resources": [

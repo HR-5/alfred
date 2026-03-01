@@ -354,6 +354,96 @@ html, body {
   color: var(--text-muted);
 }
 
+/* ── Saved links suggestions ────────────────────────────────────────────────── */
+
+#suggestions-section {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+#suggestions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.suggestion-card {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s;
+}
+
+.suggestion-card:hover {
+  border-color: var(--accent);
+}
+
+.suggestion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.suggestion-badge {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  background: rgba(190, 150, 133, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.suggestion-done-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 10px;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.suggestion-done-btn:hover {
+  background: rgba(101, 173, 122, 0.15);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.suggestion-title {
+  font-size: 12px;
+  color: var(--text-primary);
+  text-decoration: none;
+  line-height: 1.3;
+  display: block;
+}
+
+.suggestion-title:hover {
+  color: var(--accent);
+}
+
+.suggestion-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
 /* ── Specific link section ───────────────────────────────────────────────────── */
 
 #link-section {

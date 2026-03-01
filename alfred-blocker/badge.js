@@ -129,4 +129,33 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') checkAndUpdate();
   });
+
+  // ── SPA URL watcher (catches YouTube Shorts navigation) ─────────────────────
+  // YouTube uses pushState/replaceState + custom routing. The background script
+  // catches onHistoryStateUpdated, but as a safety net we also poll the URL
+  // from the content script and notify the background when a blocked URL appears.
+
+  const ALWAYS_BLOCKED_PATTERNS = [
+    /youtube\.com\/shorts/i,
+  ];
+
+  let lastCheckedUrl = location.href;
+
+  function checkSpaUrl() {
+    const url = location.href;
+    if (url === lastCheckedUrl) return;
+    lastCheckedUrl = url;
+
+    const isBlocked = ALWAYS_BLOCKED_PATTERNS.some((re) => re.test(url));
+    if (isBlocked) {
+      // Ask the background script to redirect this tab
+      chrome.runtime.sendMessage({
+        type: 'CHECK_ALWAYS_BLOCKED',
+        url,
+      });
+    }
+  }
+
+  // Poll every 1s — lightweight, catches all edge cases
+  setInterval(checkSpaUrl, 1000);
 })();

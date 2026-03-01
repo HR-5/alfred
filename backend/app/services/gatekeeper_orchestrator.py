@@ -12,7 +12,7 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.llm.base import LLMAdapter
-from app.services import calendar_service
+from app.services import calendar_service, saved_link_service
 from app.services.chat_orchestrator import (
     _build_messages,
     _get_conversation_context,
@@ -55,6 +55,11 @@ sure the user understands the consequence.
     DECISION: SHORT_BREAK
     DECISION: LONG_BREAK
 
+## Saved links
+The user has a "watch/read later" list. When DENYING access, suggest they check one of \
+these saved items instead (if any are listed below). This redirects their urge productively.
+{saved_links}
+
 ## Personality
 Terse. Disappointed but fair. Alfred who has seen this before, many times.
 Address the user as "sir" occasionally."""
@@ -72,7 +77,19 @@ def _format_schedule(blocks: list) -> str:
     return "\n".join(lines)
 
 
-def _build_gatekeeper_prompt(tz: ZoneInfo, schedule_text: str, site_name: str) -> str:
+def _format_saved_links(links: list) -> str:
+    if not links:
+        return "  (No saved links at the moment.)"
+    lines = []
+    for link in links:
+        type_label = link.link_type.value.capitalize()
+        lines.append(f"  - [{type_label}] {link.title}: {link.url}")
+    return "\n".join(lines)
+
+
+def _build_gatekeeper_prompt(
+    tz: ZoneInfo, schedule_text: str, site_name: str, saved_links_text: str = ""
+) -> str:
     now = datetime.now(tz)
     return GATEKEEPER_SYSTEM_PROMPT.format(
         site_name=site_name,
@@ -80,6 +97,7 @@ def _build_gatekeeper_prompt(tz: ZoneInfo, schedule_text: str, site_name: str) -
         day_of_week=now.strftime("%A"),
         current_time=now.strftime("%I:%M %p"),
         schedule=schedule_text,
+        saved_links=saved_links_text or "  (No saved links at the moment.)",
     )
 
 
@@ -110,7 +128,11 @@ async def handle_gatekeeper_stream(
         today_blocks = [b for b in all_blocks if b.scheduled_date == today]
         schedule_text = _format_schedule(today_blocks)
 
-        system_content = _build_gatekeeper_prompt(tz, schedule_text, site_name)
+        # Fetch saved links for suggestions
+        saved_links = await saved_link_service.get_random_unread(session, limit=3)
+        saved_links_text = _format_saved_links(saved_links)
+
+        system_content = _build_gatekeeper_prompt(tz, schedule_text, site_name, saved_links_text)
 
         await _log_turn("user", message, session, gk_session_id)
         context = await _get_conversation_context(session, gk_session_id, limit=10)

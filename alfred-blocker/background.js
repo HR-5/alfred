@@ -77,12 +77,31 @@ async function setCooldownFor(pattern, durationMinutes) {
   await chrome.storage.local.set({ [key]: Date.now() + durationMinutes * 60 * 1000 });
 }
 
+// ── Always-blocked URL patterns (no breaks, no bypass) ───────────────────────
+
+const ALWAYS_BLOCKED = [
+  { test: (url) => /youtube\.com\/shorts/i.test(url), name: 'YouTube Shorts' },
+];
+
 // ── Navigation intercept ───────────────────────────────────────────────────────
 
 chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   if (details.frameId !== 0) return;
   const url = details.url;
   if (url.startsWith(BLOCKER_PAGE)) return;
+
+  // Always-blocked URLs — no breaks, no gatekeeper, no bypass
+  const alwaysBlocked = ALWAYS_BLOCKED.find((rule) => rule.test(url));
+  if (alwaysBlocked) {
+    const params = new URLSearchParams({
+      from: url,
+      site: alwaysBlocked.name,
+      pattern: '__always_blocked__',
+      permanent: '1',
+    });
+    chrome.tabs.update(details.tabId, { url: `${BLOCKER_PAGE}?${params.toString()}` });
+    return;
+  }
 
   const patterns = await getBlockedPatterns();
   const matched = patterns.find((p) => url.includes(p.pattern));
@@ -102,6 +121,25 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   }
 
   chrome.tabs.update(details.tabId, { url: `${BLOCKER_PAGE}?${params.toString()}` });
+});
+
+// ── SPA navigation intercept (catches YouTube pushState/replaceState) ────────
+
+chrome.webNavigation.onHistoryStateUpdated.addListener(async (details) => {
+  if (details.frameId !== 0) return;
+  const url = details.url;
+  if (url.startsWith(BLOCKER_PAGE)) return;
+
+  const alwaysBlocked = ALWAYS_BLOCKED.find((rule) => rule.test(url));
+  if (alwaysBlocked) {
+    const params = new URLSearchParams({
+      from: url,
+      site: alwaysBlocked.name,
+      pattern: '__always_blocked__',
+      permanent: '1',
+    });
+    chrome.tabs.update(details.tabId, { url: `${BLOCKER_PAGE}?${params.toString()}` });
+  }
 });
 
 // ── Alarm: break timer expired ─────────────────────────────────────────────────
@@ -199,6 +237,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'REFRESH_LIST') {
     fetchAndCacheBlockedList().then(() => sendResponse({ ok: true }));
+    return true;
+  }
+
+  if (message.type === 'CHECK_ALWAYS_BLOCKED') {
+    const url = message.url;
+    const alwaysBlocked = ALWAYS_BLOCKED.find((rule) => rule.test(url));
+    if (alwaysBlocked && sender.tab?.id) {
+      const params = new URLSearchParams({
+        from: url,
+        site: alwaysBlocked.name,
+        pattern: '__always_blocked__',
+        permanent: '1',
+      });
+      chrome.tabs.update(sender.tab.id, { url: `${BLOCKER_PAGE}?${params.toString()}` });
+    }
+    sendResponse({ ok: true });
     return true;
   }
 });
