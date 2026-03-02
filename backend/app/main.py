@@ -58,6 +58,16 @@ async def lifespan(app: FastAPI):
     app.state.reminder_task = reminder_task
     logger.info("Push reminder loop started (lead=%d min)", settings.reminder_lead_time_min)
 
+    # LinkedIn acceptance polling loop
+    from app.services import linkedin_gmail_service
+    linkedin_task = asyncio.create_task(
+        linkedin_gmail_service.linkedin_poll_loop(
+            app.state.session_factory, settings
+        )
+    )
+    app.state.linkedin_task = linkedin_task
+    logger.info("LinkedIn Gmail poll loop started (every 5 min)")
+
     yield
 
     # Shutdown
@@ -65,6 +75,13 @@ async def lifespan(app: FastAPI):
         app.state.reminder_task.cancel()
         try:
             await app.state.reminder_task
+        except asyncio.CancelledError:
+            pass
+
+    if hasattr(app.state, "linkedin_task"):
+        app.state.linkedin_task.cancel()
+        try:
+            await app.state.linkedin_task
         except asyncio.CancelledError:
             pass
 

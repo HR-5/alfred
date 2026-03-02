@@ -240,6 +240,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'SAVE_LINKEDIN_CONNECTION') {
+    const { name, profile_url, reason } = message;
+    (async () => {
+      try {
+        const resp = await fetch(`${ALFRED_API}/linkedin-connections`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, profile_url, reason }),
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          sendResponse({ ok: true, data });
+        } else {
+          const err = await resp.json().catch(() => ({}));
+          sendResponse({ ok: false, error: err.detail || 'Failed to save' });
+        }
+      } catch (err) {
+        sendResponse({ ok: false, error: 'Cannot reach Alfred backend' });
+      }
+    })();
+    return true;
+  }
+
   if (message.type === 'CHECK_ALWAYS_BLOCKED') {
     const url = message.url;
     const alwaysBlocked = ALWAYS_BLOCKED.find((rule) => rule.test(url));

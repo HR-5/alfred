@@ -7,3 +7,4 @@ from app.models.push_subscription import PushSubscription  # noqa: F401
 from app.models.project import Project  # noqa: F401
 from app.models.blocked_site import BlockedSite  # noqa: F401
 from app.models.saved_link import SavedLink  # noqa: F401
+from app.models.linkedin_connection import LinkedInConnection  # noqa: F401

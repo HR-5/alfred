@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     calendar, chat, tasks, settings, integrations, telegram,
     memory, notifications, projects, blocked_sites, gatekeeper,
-    saved_links,
+    saved_links, linkedin_connections,
 )
 
 api_v1_router = APIRouter()
@@ -19,3 +19,4 @@ api_v1_router.include_router(projects.router)
 api_v1_router.include_router(blocked_sites.router)
 api_v1_router.include_router(gatekeeper.router)
 api_v1_router.include_router(saved_links.router)
+api_v1_router.include_router(linkedin_connections.router)

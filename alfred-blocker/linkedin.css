@@ -1,0 +1,174 @@
+/* Alfred LinkedIn Tracker — Floating Action Button */
+
+#__alfred-li-fab__ {
+  position: fixed !important;
+  bottom: 24px !important;
+  left: 24px !important;
+  width: 52px !important;
+  height: 52px !important;
+  background: #19191d !important;
+  border: 1.5px solid #be9685 !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  z-index: 2147483646 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(190, 150, 133, 0.15) !important;
+  user-select: none !important;
+  transition: all 0.2s ease !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+
+#__alfred-li-fab__:hover {
+  transform: scale(1.08) !important;
+  border-color: #d4a896 !important;
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(190, 150, 133, 0.3) !important;
+}
+
+#__alfred-li-fab__.__ali-saved__ {
+  border-color: #81c784 !important;
+  box-shadow: 0 4px 20px rgba(129, 199, 132, 0.4), 0 0 0 1px rgba(129, 199, 132, 0.3) !important;
+}
+
+#__alfred-li-fab__ .__ali-logo__ {
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 6px !important;
+  display: block !important;
+  object-fit: cover !important;
+  opacity: 0.95 !important;
+}
+
+/* ── Popup Form ─────────────────────────────────────────────────────── */
+
+#__alfred-li-popup__ {
+  position: fixed !important;
+  bottom: 86px !important;
+  left: 24px !important;
+  width: 320px !important;
+  background: #1a1a1f !important;
+  border: 1px solid #333 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(190, 150, 133, 0.1) !important;
+  z-index: 2147483647 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  transform: translateY(10px) scale(0.95) !important;
+  transition: opacity 0.2s ease, transform 0.2s ease !important;
+}
+
+#__alfred-li-popup__.__ali-visible__ {
+  opacity: 1 !important;
+  transform: translateY(0) scale(1) !important;
+}
+
+/* Header */
+.__ali-header__ {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 12px 16px !important;
+  background: #222228 !important;
+  border-bottom: 1px solid #333 !important;
+}
+
+.__ali-title__ {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #be9685 !important;
+  letter-spacing: 0.3px !important;
+}
+
+.__ali-close__ {
+  background: none !important;
+  border: none !important;
+  color: #777 !important;
+  font-size: 18px !important;
+  cursor: pointer !important;
+  padding: 0 4px !important;
+  line-height: 1 !important;
+  transition: color 0.15s !important;
+}
+
+.__ali-close__:hover {
+  color: #ccc !important;
+}
+
+/* Form */
+.__ali-form__ {
+  padding: 14px 16px 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.__ali-label__ {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #888 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  margin-bottom: -2px !important;
+}
+
+.__ali-input__,
+.__ali-textarea__ {
+  background: #111114 !important;
+  border: 1px solid #333 !important;
+  border-radius: 6px !important;
+  padding: 8px 10px !important;
+  font-size: 13px !important;
+  color: #e0e0e0 !important;
+  font-family: inherit !important;
+  outline: none !important;
+  transition: border-color 0.15s !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.__ali-input__:focus,
+.__ali-textarea__:focus {
+  border-color: #be9685 !important;
+}
+
+.__ali-readonly__ {
+  opacity: 0.6 !important;
+  cursor: default !important;
+  font-size: 11px !important;
+}
+
+.__ali-textarea__ {
+  resize: vertical !important;
+  min-height: 60px !important;
+}
+
+.__ali-submit__ {
+  background: #be9685 !important;
+  color: #111 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 10px 16px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  margin-top: 4px !important;
+  transition: background 0.15s, opacity 0.15s !important;
+}
+
+.__ali-submit__:hover {
+  background: #d4a896 !important;
+}
+
+.__ali-submit__:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+.__ali-status__ {
+  font-size: 12px !important;
+  text-align: center !important;
+  min-height: 16px !important;
+  transition: color 0.15s !important;
+}

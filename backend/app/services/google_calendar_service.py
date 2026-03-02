@@ -32,7 +32,11 @@ def get_auth_url(settings: Settings) -> str:
                 "redirect_uris": [settings.google_redirect_uri],
             }
         },
-        scopes=["https://www.googleapis.com/auth/calendar"],
+        scopes=[
+                "https://www.googleapis.com/auth/calendar",
+                "https://www.googleapis.com/auth/gmail.readonly",
+                "https://www.googleapis.com/auth/gmail.send",
+            ],
         redirect_uri=settings.google_redirect_uri,
     )
     url, _ = flow.authorization_url(access_type="offline", prompt="consent")
@@ -55,7 +59,11 @@ async def handle_callback(
                 "redirect_uris": [settings.google_redirect_uri],
             }
         },
-        scopes=["https://www.googleapis.com/auth/calendar"],
+        scopes=[
+                "https://www.googleapis.com/auth/calendar",
+                "https://www.googleapis.com/auth/gmail.readonly",
+                "https://www.googleapis.com/auth/gmail.send",
+            ],
         redirect_uri=settings.google_redirect_uri,
     )
     flow.fetch_token(code=code)

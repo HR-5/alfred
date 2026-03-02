@@ -27,6 +27,12 @@
       "matches": ["*://*.youtube.com/*"],
       "js": ["shorts-hider.js"],
       "run_at": "document_end"
+    },
+    {
+      "matches": ["*://*.linkedin.com/*"],
+      "js": ["linkedin.js"],
+      "css": ["linkedin.css"],
+      "run_at": "document_end"
     }
   ],
   "web_accessible_resources": [
